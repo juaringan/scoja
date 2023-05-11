@@ -1,0 +1,69 @@
+% A full description of each pure action, with its parameters.
+
+\section{Pure Actions}
+
+%----------------------------------------------------------------------
+\subsection{Setting variables}
+Event variables are defined and changed with {\tt set} action.
+This action has two arguments;
+the first one is the variable name;
+the second one is a literal string or an Scoja expression.
+This action is executed when the event pass through the link to its
+successors.
+The assignment takes effect until other {\tt set} is executed with the
+same variable name or when leaving a previous executed {\tt local}
+action.
+
+Sometimes we want to restrict an assignment effect to a region of
+a logging net; {\tt local} action can be used for this purpose.
+When an event reach a {\tt local} link, a new subenvironment is built.
+All assignments executed at its successors are stored in this
+subenvironment.
+When all {\tt local} successors are executed, the subenvironment is
+deleted; so, all the successors assignments are reverted and previous
+values are recovered.
+
+In the following example
+\begin{verbatim}
+source >> ( local >> ( lognet1
+                     | set("x", "xValue1") >> lognet2
+                     | lognet3
+                     | local >> set("x", "xValue2") >> lognet4
+                     | lognet5
+                     )
+          | lognet6
+          )
+\end{verbatim}
+variable {\tt x} has value {\tt "xValue1"} while Scoja is processing at
+{\tt lognet2}, {\tt lognet3} and {\tt lognet5} logging subnets,
+it has value {\tt "xValue2"} while processing {\tt lognet4},
+but it is undefined while at {\tt lognet1} and {\tt lognet6}.
+
+%----------------------------------------------------------------------
+\subsection{Choosing timestamp reference}
+Section~\ref{target.common.template} explains that every event has two
+timestamps: send (remote) timestamp and Scoja (local) timestamp.
+One of these is marked as \emph{default} timestamp.
+When a new event is built, Scoja timestamp is marked as \emph{default}
+timestamp.
+Action {\tt useSendTimestamp} can be used to change which timestamp is
+the default timestamp.
+This action has a boolean argument;
+if {\tt yes} o {\tt true}, send timestamp is marked as default;
+if {\tt no} o {\tt false}, Scoja timestamp is marked as default.
+This action it is executed when the event pass through the link to its
+successors; it takes effect until other {\tt useSendTimestamp} is
+executed.
+
+In the following example,
+\begin{verbatim}
+template = "${DATE} ${HOST} ${PROGRAM}: ${MESSAGE}"
+source >> ( filter1 >> toFile(name="log1", template=template)
+          | filter2 >> useSendTimestamp(yes) >> toFile(name="log2", template=t)
+	  | filter3 >> toFile(name="log3", template=t)
+	  | filter4 >> useSendTimestamp(no) >> toFile(name="log4", template=t)
+	  )
+\end{verbatim}
+events written to {\tt log1} and {\tt log4} use Scoja timestamp,
+and events written to {\tt log2} and {\tt log3} use send timestamp.
+

@@ -1,0 +1,24 @@
+Because jdk1.4 close behaviour is very difficult to implement (without
+resorting to really non-portable tricks), we have decided to use
+sockets timeouts to avoid indefinite thread block on reading operations.
+
+Reading operations that timeouts don't have the same behaviour at
+jdk1.4 than at previous releases.
+jdk1.4 raises a java.net.SocketTimoutException, while previous versions
+raise a java.io.InterruptedIOException.
+We wonder how expensive is to keep throwing exceptions.
+These tests compare exceptions with returning an special value.
+Exceptions are really expensive.
+Throwing and catching 1 millon exceptions takes 19.611 seconds at
+my machine (a Pentium III, 700MHz, 256Kb cache, 1399.19 bogomips).
+While encoding errors (or timeouts or whatever) with a null value
+takes 0.274 seconds.
+
+So, Java can throw and catch 50000 exceptions per second.
+A 0.1 second timeout means 10 exceptions per second, 0.02% cpu usage.
+But Scoja can run tens of threads.
+A configuracion with 50 threads and no event received will take 1% cpu.
+This is not a trivial amount of work to do nothing.
+Fortunately, reading local syslog events will be solve with one or two
+threads.
+So, exception cost is affordable.

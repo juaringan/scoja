@@ -1,0 +1,13 @@
+# A sample configuration file for Recoja.
+#
+# This file configures Recoja for
+# the usual Scoja high-availavility instalation.
+
+cluster(when = "/(c[0-9]+-)[^/]+$",
+        reduce = [1])
+
+parse(files = anyother,
+      with = format(eventEnd = literal("\n"),
+                    dateEnd = jump(len("Jan 21 07:18:55")),
+                    date = "MMM dd HH:mm:ss")
+      )

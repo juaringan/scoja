@@ -1,0 +1,17 @@
+ RELEASE 0.3.0
+---------------
+
+- Unix sockets are finally operative.
+  It is possible to read /dev/log with the source fromUnixStream.
+  So, for the first time, Scoja is a real replacement for syslogd
+  and syslog-ng.
+  
+- The native code has been reorganized and completed.
+  All Posix capabilities are in a single interface (PosixLike).
+  There is an always-failing implementation in pure Java (PosixFree),
+  and one native implementation for each system supported.
+  Currently, there is only one native implementation: for a Posix-complaint
+  system.
+  
+- "confine" function to limit how many different values a variable can
+  take in a finite amount of time.

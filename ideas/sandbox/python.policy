@@ -1,0 +1,32 @@
+grant codebase "file:." {
+  permission java.security.AllPermission "*";
+};
+
+grant codebase "file:jython.jar" {
+  permission java.util.PropertyPermission "user.dir", "read";
+  permission java.lang.RuntimePermission "createClassLoader";
+  permission java.lang.RuntimePermission "getProtectionDomain";
+
+  /*    
+  permission java.util.PropertyPermission "*", "read,write";
+  permission java.lang.RuntimePermission "createClassLoader";
+  permission java.lang.RuntimePermission "getProtectionDomain";
+  permission java.io.FilePermission "./cachedir/-", "read,write";
+  permission java.io.FilePermission "./-", "read";
+  permission java.io.FilePermission "/opt/jdk1.6.0_13/jre/classes", "read";
+  permission java.io.FilePermission "/opt/jdk1.6.0_13/jre/lib/-", "read";
+  permission java.io.FilePermission "/usr/java/packages/lib/ext", "read";
+  */
+  
+  //permission java.util.PropertyPermission "*", "read,write";
+  //permission java.io.FilePermission "/opt/jdk1.6.0_13/jre/classes", "read";
+  //permission java.io.FilePermission "/opt/jdk1.6.0_13/jre/lib/-", "read";
+  //permission java.io.FilePermission "/usr/java/packages/lib/ext", "read";
+  //permission java.lang.RuntimePermission "createClassLoader";
+  //permission java.lang.RuntimePermission "getProtectionDomain";
+  //permission java.io.FilePermission ".", "read";
+  //permission java.io.FilePermission "-", "read";
+  
+  // Permisos para el script1.py
+  permission java.io.FilePermission "script1.py", "read";
+};

@@ -1,0 +1,36 @@
+% A pair of parragraphs introducing this manual.
+
+This document explains how to use Scoja.
+If you know how to write Syslog-ng configuration files, and you are
+not interesting in learning Scoja native configuration language, then
+you only need to read Section~\label{conf}, where {\tt scoja} program
+options are explained.
+The same is true for tradicional syslog configuration files,
+because Scoja understands both syslog and Syslog-ng configuration
+languages.
+
+But to get the best of Scoja, it is necessary to use Scoja native
+configuration lenguage (SCL).
+SCL main concepts are those of Syslog-ng:
+sources, filters and targets linked together.
+SCL has other concepts,
+like actions, function, an event context, template user variables,
+etc.
+With all these elements, a \emph{logging net} is defined that process
+events from sources to targets, discarding unimportant ones.
+But the distintive caracteristic of SCL is that \emph{it is Python},
+with a few definitons added to build the logging net.
+This choose is a clear winner because all the power of Python can be
+used to organize and simplify configuration:
+  variables, funcion definition, arrays, loops, conditionals, etc.
+But it is not necessary to learn Python to write SCL:
+if you define and combine elements following instructions in this
+manual, you will get fully functional configurations files that use
+all of Scoja logging capabilities.
+What you loose not knowing Python is a shorter, best organized
+configuration file.
+
+If you like Scoja, and are planning to use it with complex
+configuration, we recommend you to know a bit of Python,
+just how to define functions, and how arrays work.
+Try~\cite{Diving} or~\cite{Python}.

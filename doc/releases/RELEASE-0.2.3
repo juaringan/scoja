@@ -1,0 +1,95 @@
+ RELEASE 0.2.3
+---------------
+
+Everything in this file is already done.
+It was done sometime between the beginning of Scoja and release 0.2.3.
+        
+- Mover las expresiones de scoja.server.filter a scoja.server.expr.
+
+- Hay que cambiar todo el mecanismo para la definición de variables.
+  Primero, la creación de nuevos entornos se va hacer explícitamente en
+  vez de en la etapa de propagación de cada Link.
+  Hay una acción "local" que aisla las modificaciones de sus
+  destinos para que nunca influyan en sus antecesores ni en sus
+  semejantes.
+  En el ejemplo
+    a >> ( ( (local >> (b | c))  |  d ) >> e
+         | f)
+  las modicificaciones que se hacen en b se ven en c, pero no en d ni en f;
+  se ven en e si se ha llegado a través de b, pero no si se ha llegado por d.
+  Segundo, hay que reimplementar los entornos para que sean más eficientes
+  a la hora de consultar y modificar, y menos para construir marcas de
+  recuperación.
+
+- Hay que renombrar SyslogEvent a ParsedEvent.
+  Los ParsedEvent acarrean un EventParser que se encarga de parsear
+  el evento. Los ParsedEvent hace el parseo de forma perezosa.
+  Primero quitan la suciedad de los extremos y copian sus datos.
+  Cuando se haga la primera petición a alguna parte, parsean todo el
+  paquete, salvo la fecha. Cuando se haga la primera petición a alguna
+  parte de la fecha, se parsea la fecha.
+
+* Tomada la decisión: usamos sólo String.
+  Parece que no ha tenido una influencia apreciable sobre la velocidad.  
+- Hay que tomar una decisión con las cadenas.
+  Parece que implementar nuestras propias cadenas podría ahorrar tiempo
+  de ejecución; primero, porque las cadenas de Java implican muchas copias;
+  segundo, porque las cadenas de Java implican char y podríamos trabajar
+  con bytes.
+  Además hace falta poder trabajar con las cadenas normales
+  de Java para poder construir los eventos internos.
+  En definitiva, tendríamos que hacer tres implementaciones: una para bytes,
+  otra para chars, y otra recubriendo a los String.
+  Por otra parte, puede que haya una desventaja de rendimiento porque
+  algunos códigos ejecutarían unas veces con unas implementaciones y
+  otras veces con otras; si Java no hace una especialización para cada
+  implementación, el rendimiento sería muy malo.
+
+  
+- El array de Targets de Link debería ser un array en vez de un ArrayList
+  Así lo podríamos recorrer con un índice y sin castings.
+  Puede que no ganemos mucha velocidad, pero es de lo más caro que hay
+  en la propagación de eventos.
+
+  
+- Hacer un recubrimiento para las cadenas en donde se almacena de forma
+  explícita algunas propiedades sobre su contenido:
+    si son seguros para usarse en el nombre de un fichero,
+    si contienen finales de línea,
+    ...
+
+
+* La solución final ha sido asociar posición con (variable,calidad).
+  Hay dos formas de expresar esta asociación.
+  La más básica es un con diccionario de la forma
+    {p_1: (v_1,q_1), ...., p_n: (v_n,q_n)}
+  que indica que el grupo p_i da lugar a una cadena con calidad inicial
+  q_i y se debe guardar en la variable v_i.
+  La forma abreviada es con una lista
+    [(v_1,q_1), ..., (v_n,q_n)]
+  que es una abreviatura para
+    {1: (v_1,q_1), ..., n: (v_n,q_n)]
+  Observese que con la notación básica se puede acceder a toda la cadena
+  con la posición 0.
+  Las v_i deben ser String; las q_i, Int.
+  Se puede omitir q_i en los sitios que se quiera;
+  se supone que es UNCHECKED_STR.
+- Las ligaduras de match van a ir con parejas (posición,variable).
+  
+ 
+- Definir los operadores lógicos and, or y not.
+
+
+* "eq" es también ==.
+  "match", "matchAll" y "matchStart" se han organizado como una sola
+  función con un parámetro "method" para elegir el método de ajuste.
+- Definir todas las operaciones con cadenas:
+  eq, contains, startsWith, match, matchAll, matchStart
+  
+
+* Se llama "mapping" y dependiendo de si se especifica el argumento
+  map o remap te tiene una u otra variante.
+  También he añadido un link "switch" que bifurca dependiendo del valor
+  de una cadena (ver ejemplo test/human/conf/switch.conf).
+- Definir la función que hacer mapping de unas cadenas a otras.
+  También una variante que haga lo mismo pero con expresiones regulares.

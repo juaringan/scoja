@@ -1,0 +1,16 @@
+ RELEASE 0.5.0
+---------------
+
+- A Java library org.scoja.client to send to syslog.
+  This is under LGPL.
+  This code depends on org.scoja.io, that is GPL.
+  We grant permission to use org.scoja.client library in a non-GPL program,
+  event when this library depends on a GPLed code.
+  But we don't allow to use org.scoja.io directly in a non-GPL program.
+  
+- coja.sh (org.scoja.client.Coja): a Java alternative to syslog program.
+  This program is implemented with org.scoja.client library.
+
+- Events routing finished, but not fully tested.
+
+- "syslog:" as a protocol understood by URL class.

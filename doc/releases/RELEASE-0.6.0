@@ -1,0 +1,6 @@
+ RELEASE 0.6.0
+---------------
+
+- A JDK log handler, for general use and demostrated in recoja.
+
+- A pipe source.

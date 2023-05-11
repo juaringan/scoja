@@ -1,0 +1,186 @@
+/*
+ * Scoja: Syslog COllector in JAva
+ * Copyright (C) 2003  Mario Martínez
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+package org.scoja.popu.cojacola;
+
+import java.io.PrintWriter;
+import java.util.logging.Logger;
+import java.util.logging.Level;
+
+import org.scoja.popu.common.FileManager;
+
+public class CojaCola {
+
+    private static final Logger log
+        = Logger.getLogger(CojaCola.class.getName());
+
+    public static void main(final String[] args) {
+        final CojaCola cc = new CojaCola();
+        try {
+            cc.processArguments(args);
+            if (cc.shouldHelp()) {
+                cc.help();
+            } else {
+                cc.doIt();
+            }
+        } catch (Throwable e) {
+            log.log(Level.SEVERE, "Ended with an error", e);
+        }
+    }
+    
+    
+    //======================================================================
+    protected boolean helpRequested = false;
+    protected String error = null;
+
+    protected String posixProvider = null;
+    protected boolean pretend = false;
+    protected boolean notDirIsFile = false;
+    protected boolean truncateFiles = false;
+    protected int inputBuffer = 0;
+    protected int outputBuffer = 0;
+    protected int readAhead = 0;
+    protected int writeDelay = 0;
+    
+    protected String dir1 = null;
+    protected String dir2 = null;
+
+    protected FileManager fileManager = new FileManager();
+        
+    public boolean shouldHelp() {
+        return helpRequested || error != null;
+    }
+    
+    public void help() {
+        help(new PrintWriter(System.err));
+    }
+    
+    public void help(final PrintWriter out) {
+        out.println();
+        if (error != null) {
+            out.print("ERROR: " + error + "\n\n");
+        }
+        out.print(
+            "java " + getClass().getName() + " <options> <dir1> <dir2>"
+            + "\nVersion @@MAJORVERSION@@.@@MIDDLEVERSION@@.@@MINORVERSION@@"
+            + " (built at @@BUILDDATE@@)"
+            + "\nOptions:"
+            + "\n  -h, --help, This help message."
+            + "\n  --, Terminates options."
+            + "\n  -P <class name>, --posix-provider <class name>,"
+            + "\n    Class name for the provider of Posix basic functions"
+            + "\n    (Also through org.scoja.io.posix.provider property)"
+            + "\n    Some legal values:"
+            + "\n      org.scoja.io.posix.PosixNative"
+            + "\n  -p, --pretend,"
+            + "\n    Show what should be done."
+            + "\n  -f, --not-dir-is-file,"
+            + "\n  -t, --trucate,"
+            + "\n    Write to (and truncate) preexistent files"
+            + "\n  -i size, --input-buffer size,"
+            + "\n  -o size, --output-buffer size,"
+            + "\n  -r size, --read-ahead size,"
+            + "\n  -w size, --write-delay size,"
+            + "\n  -x ext, --consider-extension ext,"
+            + "\n");
+        out.flush();
+    }
+        
+    public void processArguments(final String[] args) {
+        int i = 0, remain = args.length;
+        while (remain > 0 && args[i].startsWith("-")) {
+            final String opt = args[i]; i++; remain--;
+            if ("-h".equals(opt) || "--help".equals(opt)) {
+                helpRequested = true;
+            } else if ("--".equals(opt)) {
+                break;
+            } else if (("-P".equals(opt) || "--posix-provider".equals(opt))
+                       && remain > 0) {
+                posixProvider = args[i]; i++; remain--;
+                
+            } else if ("-p".equals(opt) || "--pretend".equals(opt)) {
+                pretend = true;
+            } else if ("-f".equals(opt) || "--not-dir-is-file".equals(opt)) {
+                notDirIsFile = true;
+            } else if ("-n".equals(opt) || "--new".equals(opt)) {
+                truncateFiles = true;
+                
+            } else if (("-i".equals(opt) || "--input-buffer".equals(opt))
+                       && remain > 0) {
+                try {
+                    inputBuffer = Integer.parseInt(args[i]);
+                    i++; remain--;
+                } catch (NumberFormatException e) {
+                    error = "Bad input buffer size " + args[i];
+                    return;
+                }
+            } else if (("-o".equals(opt) || "--output-buffer".equals(opt))
+                       && remain > 0) {
+                try {
+                    outputBuffer = Integer.parseInt(args[i]);
+                    i++; remain--;
+                } catch (NumberFormatException e) {
+                    error = "Bad output buffer size " + args[i];
+                    return;
+                }
+            } else if (("-r".equals(opt) || "--read-ahead".equals(opt))
+                       && remain > 0) {
+                try {
+                    readAhead = Integer.parseInt(args[i]);
+                    i++; remain--;
+                } catch (NumberFormatException e) {
+                    error = "Bad read ahead size " + args[i];
+                    return;
+                }
+            } else if (("-w".equals(opt) || "--write-delay".equals(opt))
+                       && remain > 0) {
+                try {
+                    writeDelay = Integer.parseInt(args[i]);
+                    i++; remain--;
+                } catch (NumberFormatException e) {
+                    error = "Bad write delay size " + args[i];
+                    return;
+                }
+            } else if (("-x".equals(opt) || "--consider-extension".equals(opt))
+                       && remain > 0) {
+                try {
+                    fileManager.manageExtension(args[i]);
+                    i++; remain--;
+                } catch (IllegalArgumentException e) {
+                    error = "Cannot manage extension " + args[i];
+                    return;
+                }
+                            
+            } else {
+                error = "Unknown option `" + opt + "'";
+                return;
+            }
+        }
+        if (helpRequested) return;
+        if (remain != 2) {
+            error = "Two non-option arguments expected";
+            return;
+        }
+        dir1 = args[i];
+        dir2 = args[i+1];
+    }
+    
+    public void doIt() {
+    }
+}
+

@@ -1,0 +1,9 @@
+# $Id: c1.ng-conf,v 1.1 2003/02/07 11:32:41 mario_martinez Exp $
+# Equivalente a c1.conf pero con la sintaxis de syslog-ng.
+	
+source s1 { udp(ip(127.0.0.1) port(4322)); };
+destination d1 { 
+  file("/tmp/sysloj/syslog-ng3.log" create_dirs(yes));
+};
+
+log { source(s1); destination(d1); };

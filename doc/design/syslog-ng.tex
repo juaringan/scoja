@@ -1,0 +1,39 @@
+
+\section{Resumen de syslog-ng}
+
+Las fuentes son
+\begin{description}
+  \item[{\tt internal}]
+  \item[{\tt file}]
+  \item[{\tt pipe}, {\tt fifo}]
+  \item[{\tt unix-stream}, {\tt unix-dgram}]
+  \item[{\tt sun-stream}, {\tt sun-streams}]
+  \item[{\tt udp}, {\tt tcp}]
+\end{description}
+
+Los destinos son
+\begin{description}
+  \item[{\tt file}]
+  \item[{\tt fifo}, {\tt pipe}]
+  \item[{\tt unix-stream}, {\tt unix-dgram}]
+  \item[{\tt udp}, {\tt tcp}]
+  \item[{\tt usertty}]
+  \item[{\tt program}]
+\end{description}
+
+Opciones para los log
+\begin{description}
+  \item[{\tt final}]
+    Si todas la condiciones de un log con final se cumplen, se deja de
+    trazar este evento.
+  \item[{\tt fallback}]
+    Son los últimos logs que se intentan y sólo si no se ha utilizado
+    ninguno de los anteriores.
+  \item[{\tt catchall}]
+    Las fuentes no se tienen en cuenta, sólo los filtros y los
+    destinos.
+    Viene a querer indicar \emph{todas la fuentes}.
+    Por tanto, lo natural es usarlos en una regla log sin fuentes.
+\end{description}
+
+Opciones para el destino {\tt file}:

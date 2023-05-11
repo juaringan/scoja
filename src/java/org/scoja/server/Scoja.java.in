@@ -1,0 +1,379 @@
+/* @@AUTO@@ */
+/*
+ * Scoja: Syslog COllector in JAva
+ * Copyright (C) 2003  Mario Martínez
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+package org.scoja.server;
+
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
+import java.io.IOException;
+import java.text.ParseException;
+import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
+
+import org.python.util.PythonInterpreter;
+
+import org.scoja.common.PriorityUtils;
+import org.scoja.io.posix.Posix;
+import org.scoja.io.posix.PosixLike;
+import org.scoja.util.ReflectiveEntity;
+import org.scoja.util.TransientMap;
+import org.scoja.cc.text.escaping.Escaper;
+
+import org.scoja.server.conf.Dependency;
+import org.scoja.server.conf.GlobalContext;
+import org.scoja.server.conf.HubConfiguration;
+import org.scoja.server.conf.GroupConfiguration;
+import org.scoja.server.conf.ScojaConfiguration;
+import org.scoja.server.core.Link;
+import org.scoja.server.core.SyncLink;
+import org.scoja.server.core.EventQueue;
+import org.scoja.server.expr.SecureFunction;
+import org.scoja.server.source.Internal;
+import org.scoja.server.source.Measurer;
+import org.scoja.server.target.PrintTarget;
+import org.scoja.server.target.FileLRUCache;
+import org.scoja.server.target.FilesMeasurable;
+import org.scoja.server.target.HashedFilesMeasurable;
+
+public class Scoja {
+
+    public static void main(final String[] args)
+    throws Exception {
+        final ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+        if (threads.isThreadCpuTimeSupported()) {
+            threads.setThreadCpuTimeEnabled(true);
+        }
+        
+        final Scoja scoja = new Scoja();
+        scoja.processArguments(args);
+        if (scoja.shouldHelp()) {
+            scoja.help();
+            scoja.stop();
+        } else {
+            scoja.prepare();
+            scoja.start();
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                    public void run() { scoja.stop(); }
+                });
+        }
+    }
+    
+    
+    //======================================================================
+    
+    private static final int 
+        SECOND = 1000,
+        MINUTE = 60 * SECOND,
+        HOUR = 60 * MINUTE;
+    
+    protected boolean helpRequested;
+    protected String errorMessage;
+    
+    protected String securerName;
+    protected String posixProvider;
+    
+    protected long reloaderDelay;
+    protected TimerTask reloader;
+    
+    protected final HubConfiguration configuration;
+    protected final Measurer measurer;
+    protected final GlobalContext context;
+    
+    protected EventQueue internalQueue;
+    
+    public Scoja()
+    throws java.net.UnknownHostException {
+        this.helpRequested = false;
+        this.errorMessage = null;
+        
+        this.securerName = null;
+        this.posixProvider = null;
+        
+        this.reloaderDelay = -1;
+        this.reloader = null;
+        
+        this.configuration = new HubConfiguration();
+        final Link internal = new SyncLink();
+        Internal.getInstance().addTarget(internal);
+        this.measurer = new Measurer();
+        final FilesMeasurable fileMeasures
+            = new HashedFilesMeasurable(new TransientMap(24*60*60*1000L));
+        this.measurer.addMeasurable(fileMeasures);
+        this.context = new GlobalContext(internal, measurer, fileMeasures);
+        
+        this.internalQueue = null;
+    }
+    
+    public void help() {
+        if (errorMessage != null) {
+            System.err.print("ERROR: " + errorMessage + "\n\n");
+        }
+        System.err.print(
+            "The Scoja log collector"
+            + "\nA GNU GPLed program from the Scoja project"
+            + "\nVersion:"
+            + " @@MAJORVERSION@@.@@MIDDLEVERSION@@.@@MINORVERSION@@"
+            + " (@@WORKING_MODE@@, built at @@BUILDDATE@@)"
+            + "\nUsage:"
+            + "\n  java " + getClass().getName() + " <options>"
+            + "\n    or"
+            + "\n  scoja.sh <options>"
+            + "\nOptions:"
+            + "\n  -h, --help, show this help message"
+
+            + "\n  -S <class name>, --secure-with <class name>,"
+            + "\n    Which entity makes external values acceptable"
+            +      " for filenames"
+            + "\n    (Similar to org.scoja.server.secure.escaper property)"
+            + "\n    Some legal values:"
+            + "\n      org.scoja.util.escaping.SecureFilename.forUnix"
+            + "\n  -P <class name>, --posix-provider <class name>,"
+            + "\n    Class name for the provider of Posix basic functions"
+            + "\n    (Also through org.scoja.io.posix.provider property)"
+            + "\n    Some legal values:"
+            + "\n      org.scoja.io.posix.PosixNative"
+
+            + "\n  -r <time>, --reload <time>"
+            + "\n    Configuration files reloading is try every <time>"
+            + "\n    <time> format is <nn>h<nn>m<nn>s<nn>"
+            + "\n    If absent, no reloading takes place"
+            + "\n  -G <file>, --group-cfg <file>"
+            + "\n    Load all configuration files in <file>"
+            + "\n    This and the following configuration file options can"
+            + "\n    be used multiple times."
+            + "\n    Loading and reloading obey command line order."
+            + "\n  -j <file>, --scoja-cfg <file>"
+            + "\n    Load <file> as a native Scoja configuration file."
+            + "\n  -n <file>, --syslogng-cfg <file>"
+            + "\n    Load <file> as a Syslog-ng configuration file."
+            + "\n  -d <file>, --syslogd-cfg <file>"
+            + "\n    Load <file> as a syslogd configuration file."
+
+            + "\n");
+    }
+    
+    public void processArguments(final String[] args) {
+        int argc = 0, remain = args.length;
+        while (remain > 0 && errorMessage == null) {
+            final String opt = args[argc]; argc++; remain--;
+            if ("-h".equals(opt) || "--help".equals(opt)) {
+                helpRequested = true;
+
+            } else if (("-S".equals(opt) || "--secure-with".equals(opt))
+                       && remain > 0) {
+                securerName = args[argc]; argc++; remain--;
+            } else if (("-P".equals(opt) || "--posix-provider".equals(opt))
+                       && remain > 0) {
+                posixProvider = args[argc]; argc++; remain--;
+            } else if (("-r".equals(opt) || "--reload".equals(opt))
+                       && remain > 0) {
+                try {
+                    reloaderDelay = parseDelay(args[argc]);
+                    argc++; remain--;
+                } catch (ParseException e) {
+                    errorMessage
+                        = "\"" + args[argc] + "\" is not a correct delay";
+                }
+            } else if (("-G".equals(opt) || "--group-cfg".equals(opt))
+                       && remain > 0) {
+                try {
+                    configuration
+                        .add(new GroupConfiguration(context, args[argc]));
+                    argc++; remain--;
+                } catch (IOException e) {
+                    canonicalError(e, args[argc]);
+                }
+            } else if (("-j".equals(opt) || "--scoja-cfg".equals(opt))
+                       && remain > 0) {
+                try {
+                    configuration
+                        .add(new ScojaConfiguration(context, args[argc]));
+                    argc++; remain--;
+                } catch (IOException e) {
+                    canonicalError(e, args[argc]);
+                }
+            } else if (("-n".equals(opt) || "--syslogng-cfg".equals(opt))
+                       && remain > 0) {
+                //configuration
+                //    .add(new SyslogNGConfiguration(context, args[argc]));
+                argc++; remain--;
+            } else if (("-d".equals(opt) || "--syslogd-cfg".equals(opt))
+                       && remain > 0) {
+                //configuration
+                //    .add(new SyslogdConfiguration(context, args[argc]));
+                argc++; remain--;
+            } else {
+                errorMessage = "Unknown option \"" + opt
+                    + "\" or an argument expected";
+            }
+        }
+    }
+
+    protected void canonicalError(final IOException e, final String name) {
+        errorMessage = "Error while computing the canonical name of"
+            + " \"" + name + "\": " + e.getMessage();
+    }
+        
+    public boolean shouldHelp() {
+        return helpRequested || errorMessage != null;
+    }
+    
+    public void prepare() {
+        preparePython();
+    }
+    
+    protected void preparePython() {
+        final String[][] transfers = {
+            //cachedir directory is looked-for/created at python.home
+            {"scoja.home", "python.home"},
+            //Sources for cachedir/packages
+            {"java.class.path"},
+            //{"sun.boot.class.path"},
+            //{"java.ext.dirs"},
+        };
+        final Properties copy = new Properties();
+        for (final String[] trans: transfers) {
+            final String value = System.getProperty(trans[0]);
+            if (value != null) copy.put(trans[trans.length-1], value);
+        }
+        PythonInterpreter.initialize(copy, new Properties(), new String[] {});
+    }
+    
+    public void start() {
+        internalQueue = new EventQueue("internal queue"); 
+        internalQueue.setThreads(1);
+        Internal.getInstance().setQueue(internalQueue);
+        internalQueue.start();
+        
+        final PrintTarget tempTarget = new PrintTarget(System.err);
+        context.getInternal().addTarget(tempTarget);
+
+        installSecurer();
+        installPosixProvider();
+        configuration.reload();
+        
+        measurer.start();
+        configuration.start();
+        
+        if (reloaderDelay > 0) {
+            Internal.notice(Internal.MAIN, "Reloader started to run every "
+                            + (reloaderDelay/1000.0) + " seconds");
+            reloader = new TimerTask() {
+                    public void run() {
+                        reload();
+                    }
+                };
+            context.getTimer()
+                .schedule(reloader, 2*reloaderDelay, reloaderDelay);
+        }
+        
+        Internal.warning(Internal.MAIN, "Scoja started");
+        //This removal must happen after starting the configuration
+        // so that no initial event is lost.
+        // Some internal events may appear both in the stderr and wherever
+        // the configuration says.
+        try {
+            internalQueue.waitCurrent();
+        } catch (InterruptedException cannotHappen) {}
+        context.getInternal().removeTarget(tempTarget);
+    }
+    
+    protected void installSecurer() {
+        if (securerName == null) return;
+        try {
+            final Escaper escaper = (Escaper)new ReflectiveEntity(
+                securerName, Escaper.class).getByAllMeans();
+            SecureFunction.setAlgorithm(escaper);
+        } catch (Throwable e) {
+            Internal.err(Internal.MAIN, 
+                         "Cannot install securer \"" + securerName + "\"",
+                         e);
+        }
+    }
+    
+    protected void installPosixProvider() {
+        if (posixProvider == null) return;
+        try {
+            final PosixLike posixer = (PosixLike)new ReflectiveEntity(
+                posixProvider, PosixLike.class).getByAllMeans();
+            Posix.setPosix(posixer);
+        } catch (Throwable e) {
+            Internal.err(
+                Internal.MAIN, 
+                "Cannot install posix provider \"" + posixProvider + "\"",
+                e);
+        }
+    }
+    
+    public void reload() {
+        configuration.reload();
+    }
+    
+    public void stop() {
+        Internal.warning(Internal.MAIN, "Enabling internal log to stderr");
+        context.getInternal().addTarget(new PrintTarget(System.err));
+        Internal.warning(Internal.MAIN, "Scoja is stopping");
+        if (reloader != null) {
+            Internal.warning(Internal.MAIN, "Stopping reloader");
+            reloader.cancel();
+            reloader = null;
+        }
+        Internal.warning(Internal.MAIN, "Stopping configuration");
+        configuration.stop();
+        Internal.warning(Internal.MAIN, "Closing global context");
+        context.close();
+        Internal.warning(Internal.MAIN, "Stopping internal log queue");
+        Internal.getInstance().removeQueue();
+        if (internalQueue != null) internalQueue.shouldStop();
+        Internal.warning(Internal.MAIN, "Scoja has stopped");
+    }
+    
+    
+    //======================================================================
+    protected long parseDelay(final String str) throws ParseException {
+        long dur = 0;
+        final int len = str.length();
+        int i = 0;
+        while (i < len) {
+            int n = 0;
+            while (i < len && Character.isWhitespace(str.charAt(i))) i++;
+            while (i < len && Character.isDigit(str.charAt(i))) {
+                n = 10*n + Character.digit(str.charAt(i), 10);
+                i++;
+            }
+            while (i < len && Character.isWhitespace(str.charAt(i))) i++;
+            if (i == len) {
+                dur += n;
+                break;
+            }
+            switch (str.charAt(i)) {
+            case 'h': dur += n * HOUR; break;
+            case 'm': dur += n * MINUTE; break;
+            case 's': dur += n * SECOND; break;
+            default:
+                throw new ParseException(str, i);
+            }
+            i++;
+        }
+        return dur;
+    }
+    
+}

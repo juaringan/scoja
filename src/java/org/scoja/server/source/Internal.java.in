@@ -1,0 +1,296 @@
+/** @@AUTO@@ */
+/*
+ * Scoja: Syslog COllector in JAva
+ * Copyright (C) 2003-2005  Mario Martínez
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+package org.scoja.server.source;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import org.scoja.cc.lang.Exceptions;
+import org.scoja.common.PriorityUtils;
+import org.scoja.server.core.ScojaThread;
+import org.scoja.server.core.Link;
+import org.scoja.server.core.Event;
+import org.scoja.server.core.InternalEvent;
+import org.scoja.server.core.EventContext;
+
+/**
+ * This is the source of internal events.
+ * It is a singleton.
+ * At configuration scripts, it is accesible through "internal"
+ * variable.
+ * All scripts see the same object; so, it is only necessary to
+ * configure its logging (filters + targets) at one script.
+ * <p>
+ * Logging at Scoja library should use this singleton.
+ * This logging class use a trick to avoid endless chains
+ * of internal events.
+ * As an inevitable side effect, this trick can cut the generation of
+ * some internal logs.
+ * It is important to read carefully this class documentation.
+ *
+ * <p>
+ * <b>Energy</b>
+ * There are two kinds of threads at Scoja.
+ * More frecuent and active threads are those that process events.
+ * But threre are a few threads that do other activies, not directly
+ * related to event processing. For instance, the thread that check
+ * whether configurations files has changed.
+ * When event A processing produce an internal event B, we say that A
+ * is guilty or reference event of B.
+ * <p>
+ * Most internal events are generated at event (external or internal)
+ * processing threads.
+ * So, it is possible that processing an internal event produce
+ * another similar internal event, that produce another similar event,
+ * and so on.
+ * To avoid these endless event chains, every event has an
+ * <i>energy</i>.
+ * When an event E1 produces an internal event E2, this class ensures
+ * that E2 its more critical than E1 (its level is strict less than E1
+ * level) or than its energy is one less than E1 energy.
+ * Each time that an event produces another event, at least one of
+ * level or energy is decreased.
+ * So, there is no way to produce an endless chain of events.
+ * <p>
+ * Sometimes, an event processing thread is executing a code that
+ * wants to produce an internal event but has no way to access to the
+ * event currently been processing.
+ * This is no problem, because event processing threads are not normal
+ * {@link java.lang.Thread} but {@link ScojaThread}.
+ * These special threads always referer to the event they are
+ * processing.
+ * This class has methods with and without explicit event that is
+ * currenlty been processed; when a method without this argument is
+ * used, the current thread is explored to find out the current
+ * event.
+ * <p>
+ * Internal events produced by non-event-processing threads are the
+ * only one that have no guilty event.
+ * But this events cannot produce an endless chain of events because
+ * other internal events produced during processing this internal
+ * event will have a guilty.
+ *
+ * <p>
+ * <b>Easy methods</b>
+ * To make code short an more readable, static methods for every level
+ * are defined.
+ * There are two versions: with and without reference event.
+ * Version with reference event should be used whenever possible.
+ *
+ * <p>
+ * <b>Statically removing unimportant internal events</b>
+ * Internals events to levels less critical than
+ * {@link PriorityUtils#NOTICE} (not included) should be
+ * statically removable, to enhance performance.
+ * So, when sending
+ * to {@link PriorityUtils#INFO}
+ * and {@link PriorityUtils#DEBUG},
+ * it is necessary to nest the calls inside a conditional like:
+ * <code><pre>
+ * if (pretendedLevel <= Internal.LOG_DETAIL) {
+ *     Internal.getInstance().log(guiltyEvent, pretendedLevel, "Message");
+ * }
+ * </pre></code>
+ * For instance:
+ * <pre>
+   if (PriorityUtils.DEBUG <= Internal.LOG_DETAIL) {
+       Internal.getInstance().log(env, PriorityUtils.DEBUG, "Message");
+   }
+ * </pre>
+ * or better:
+ * <pre>
+   if (PriorityUtils.DEBUG <= Internal.LOG_DETAIL) {
+       Internal.debug(env, "Message");
+   }
+ * </pre>
+ */
+public class Internal extends Link {
+    
+    private static final Internal internal;
+    static {
+        try {
+            internal = new Internal();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException
+                ("Fatal error: Cannot find localhost address");
+        }
+    }
+    
+    public static Internal getInstance() {
+        return internal;
+    }
+    
+    public static final int LOG_DETAIL = PriorityUtils.@@LOG_DETAIL@@;
+    
+    public static final String
+        MAIN = "main",
+        KILLER = "killer",
+        CONFIG = "configuration",
+        THREAD = "thread",
+        PARSER = "parser",
+        FILTER = "filter",
+        FILTER_LIMIT = "filter.limit",
+        ACTION = "action",
+        MONITOR = "monitor",
+        SOURCE_MEASURER = "source.measurer",
+        SOURCE_TRANS = "source.transport",
+        SOURCE_TCP = "source.net.tcp",
+        SOURCE_UDP = "source.net.udp",
+        SOURCE_UNIX_DGRAM = "source.unix.datagram",
+        SOURCE_UNIX_STREAM = "source.unix.stream",
+        SOURCE_PIPE = "source.pipe",
+        TARGET_FILE = "target.file",
+        TARGET_SYSLOG = "target.syslog";
+    
+    protected final InetAddress localhost;
+    
+    private Internal() throws UnknownHostException {
+        this.localhost = InetAddress.getLocalHost();
+    }
+    
+    public void log(final int level, final String tag, final String message) {
+        EventContext ectx = null;
+        final Thread thread = Thread.currentThread();
+        if (thread instanceof ScojaThread) {
+            ectx = ((ScojaThread)thread).getEventContext();
+        }
+        if (ectx != null) {
+            log(ectx, level, tag, message);
+        } else {
+            log(InternalEvent.NO_ENERGY, level, tag, message);
+        }
+    }
+    
+    public void log(final EventContext guilty, final int level,
+                    final String tag, final String message) {
+        final Event env = guilty.getEvent();
+        int energy = env.getEnergy();
+        if (level >= env.getLevel()) energy--;
+        log(energy, level, tag, message);
+    }
+    
+    protected void log(final int energy, final int level,
+                       final String tag, final String message) {
+        if (energy < InternalEvent.NO_ENERGY) return;
+        final String program 
+            = (tag == null) ? "syslog.scoja" : ("syslog.scoja." + tag);
+        final Event event = new InternalEvent
+            (localhost, energy, PriorityUtils.SYSLOG,level, program, message);
+        final EventContext newECtx = new EventContext(event);
+        final Thread thread = Thread.currentThread();
+        if (thread instanceof ScojaThread) {
+            final ScojaThread sthread = (ScojaThread)thread;
+            final EventContext previousECtx = sthread.setEventContext(newECtx);
+            process(newECtx);
+            sthread.setEventContext(previousECtx);
+        } else {
+            process(newECtx);
+        }
+    }
+
+    public static void emerg(final EventContext env, 
+                             final String tag, final String message) {
+        internal.log(env, PriorityUtils.EMERG, tag, message);
+    }
+    
+    public static void emerg(final String tag, final String message) {
+        internal.log(PriorityUtils.EMERG, tag, message);
+    }
+    
+    public static void alert(final EventContext env,
+                             final String tag, final String message) {
+        internal.log(env, PriorityUtils.ALERT, tag, message);
+    }
+    
+    public static void alert(final String tag, final String message) {
+        internal.log(PriorityUtils.ALERT, tag, message);
+    }
+    
+    public static void crit(final EventContext env,
+                            final String tag, final String message) {
+        internal.log(env, PriorityUtils.CRIT, tag, message);
+    }
+    
+    public static void crit(final String tag, final String message) {
+        internal.log(PriorityUtils.CRIT, tag, message);
+    }
+    
+    public static void err(final EventContext env,
+                           final String tag, final String message) {
+        internal.log(env, PriorityUtils.ERR, tag, message);
+    }
+    
+    public static void err(final String tag, final String message) {
+        internal.log(PriorityUtils.ERR, tag, message);
+    }
+    
+    public static void err(final EventContext env,
+                           final String tag, final String message,
+                           final Throwable e) {
+        internal.log(env, PriorityUtils.ERR, tag, 
+                     message + " " + stackTrace(e));
+    }
+    
+    public static void err(final String tag, final String message,
+                           final Throwable e) {
+        internal.log(PriorityUtils.ERR, tag,
+                     message + " " + stackTrace(e));
+    }
+    
+    protected static String stackTrace(final Throwable e) {
+        return Exceptions.stackTrace(e).replace("\n", "%0A");
+    }
+    
+    public static void warning(final EventContext env,
+                               final String tag, final String message) {
+        internal.log(env, PriorityUtils.WARNING, tag, message);
+    }
+    
+    public static void warning(final String tag, final String message) {
+        internal.log(PriorityUtils.WARNING, tag, message);
+    }
+    
+    public static void notice(final EventContext env,
+                              final String tag, final String message) {
+        internal.log(env, PriorityUtils.NOTICE, tag, message);
+    }
+
+    public static void notice(final String tag, final String message) {
+        internal.log(PriorityUtils.NOTICE, tag, message);
+    }
+    
+    public static void info(final EventContext env,
+                            final String tag, final String message) {
+        internal.log(env, PriorityUtils.INFO, tag, message);
+    }
+    
+    public static void info(final String tag, final String message) {
+        internal.log(PriorityUtils.INFO, tag, message);
+    }
+    
+    public static void debug(final EventContext env,
+                             final String tag, final String message) {
+        internal.log(env, PriorityUtils.DEBUG, tag, message);
+    }
+    
+    public static void debug(final String tag, final String message) {
+        internal.log(PriorityUtils.DEBUG, tag, message);
+    }
+}

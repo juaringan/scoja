@@ -1,0 +1,20 @@
+- Hay un problema con el log interno en el código demasiado "básico".
+  Por ejemplo, si cuando se cierra un fichero de la caché se manda un
+  mensaje de log, puede ocurrir que haya que cerrar otro, lo que generará
+  un mensaje, etc.
+  Esto se ha arreglado con la vida, una cuenta decreciente que cuando
+  se llega a 0 hace que el procesamiento de un mensaje no provoque más.
+  
+- Hay otro problema con la caché de fichero.
+  El código no es reentrante.
+  El momento en que se cierra un fichero ocurre cuando estamos a medias
+  de actualizar unas estructuras de datos bastante delicadas.
+  Si esto provoca un evento (hay un callback para este propósito)
+  y su procesamiento accede a la caché, las estructuras internas se
+  extropearán.
+  La mejor solución es que Internal tenga un modo de evento retrasado.
+  Estos eventos los guarda en una cola interna y sólo se escriben cuando
+  llegue un evento normal.
+  Se parece a tener una cola (EventQueue) con proceso separado
+  (la hebra de la cola no conseguirá entra en la caché porque está
+  sincronizada).

@@ -1,0 +1,91 @@
+ RELEASE 0.6.6
+---------------
+
+- Solved (i hope) the following error:
+
+java.lang.StringIndexOutOfBoundsException: String index out of range: 0
+        at java.lang.String.charAt(String.java:460)
+        at org.scoja.server.parser.StdSyslogEventParser.parseOn(StdSyslogEventPa
+rser.java:56)
+        at org.scoja.server.parser.ParsedEvent.ensureParsed(ParsedEvent.java:88)
+        at org.scoja.server.parser.ParsedEvent.getPriority(ParsedEvent.java:139)
+        at org.scoja.server.parser.ParsedEvent.getLevel(ParsedEvent.java:148)
+        at org.scoja.server.source.Internal.log(Internal.java:180)
+        at org.scoja.server.source.Internal.log(Internal.java:170)
+        at org.scoja.server.source.Internal.err(Internal.java:248)
+        at org.scoja.server.source.UDPSource.processPackets(UDPSource.java:169)
+        at org.scoja.server.source.UDPSource.run(UDPSource.java:96)
+        at java.lang.Thread.run(Thread.java:536)
+
+  Era un error en el parseo cuando el paquete de datos estaba completamente
+  vacío.
+  Al procesar el paquete se producía una excepción;
+  se capturaba y se intentaba dejar constancia del error con un mensaje
+  interno;
+  pero en este proceso se utiliza el nivel del mensaje externo para no entrar
+  en una posible cadena infinita de mensajes internos;
+  al capturar mirar el nivel se volvía a intentar parsear el mensaje,
+  por lo que se volvía a producir otra instancia de una excepción similar;
+  pero esta excepción ya no se captura (porque no debería producirse ninguna
+  excepción al procesar un mensaje interno).
+  
+  Se ha arreglado con los siguientes cambios.
+    * Se procesan correctamente los mensajes vacíos.
+    * Cuando se produce una excepción en el parseo de un mensaje, se marca
+      el mensaje como parseado, de forma que los posteriores accesos a
+      propiedades de ese mensaje devuelven los valores por defecto y no
+      relanzan el parseo.
+    * Los métodos de internal capturan toda posible excepción.
+
+- We used "received" to refer to reception date.
+  But this word is misleading, because it can mean both date in the
+  received date, and current date when the packet was received.
+  The pretended meaning was the second one.
+  Now we use "reception" date that, may be a be strange, but it is pretty
+  clear.
+  
+- Configuration action useSendTimestamp did the opposite.
+  Now peek the send date as the preferred timestamp, instead of reception
+  date (the default preferred timestamp).
+
+    
+ TODO
+------
+
+
+- A faster Scoja native configuration files load code.
+
+- A pool of open server sockets.
+  Configuration files don't open/close this objects directly.
+  So reloading updated configuration files doesn't have problems with
+  still opened sockets.
+  
+- What about message enconding?
+  Now code supposes that Latin1 encoding is used.
+  This should be configurable for the message body.
+
+- Translate this fucking proyect to english.
+
+- A lot of JUnit tests.
+
+- mapping should have a fail mode: if key is not found, event will not pass.
+  There is a problem to implement this functionality:
+  mapping are expression and only links can block events.
+  The simplest solution is to return a null to mark that the expression
+  evaluation failed and the event cannot pass.
+
+- useSendTimestamp should change default timestamp only for the logging
+  net following this action.
+  
+- Avoid all Python composition at Java code.
+  It is easier to cover Java objects with Python object that take care
+  of link and expression composition.
+
+- Recoja:
+  Set user, group and mode of the generated files.
+  
+- SSL, in Scoja and events routing.
+
+- Acoja utility.
+
+- Statistics

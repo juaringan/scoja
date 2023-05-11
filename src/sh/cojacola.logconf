@@ -1,0 +1,26 @@
+# $Id: cojacola.logconf,v 1.1 2007/10/05 07:18:28 pedropalao-bk Exp $
+
+handlers = org.scoja.client.j2selog.SyslogHandler,java.util.logging.ConsoleHandler
+#handlers = org.scoja.client.j2selog.SyslogHandler
+
+#java.util.logging.ConsoleHandler.level = INFO
+java.util.logging.ConsoleHandler.level = FINEST
+java.util.logging.ConsoleHandler.formatter = java.util.logging.SimpleFormatter
+
+#org.scoja.client.j2selog.SyslogHandler.level = INFO
+org.scoja.client.j2selog.SyslogHandler.level = FINEST
+org.scoja.client.j2selog.SyslogHandler.protocol = stream
+org.scoja.client.j2selog.SyslogHandler.host = localhost
+org.scoja.client.j2selog.SyslogHandler.port = 514
+#org.scoja.client.j2selog.SyslogHandler.dev = /dev/log
+org.scoja.client.j2selog.SyslogHandler.retries = 3
+org.scoja.client.j2selog.SyslogHandler.facility = local5
+org.scoja.client.j2selog.SyslogHandler.levelmap = \
+  FINEST,FINE,CONFIG,INFO,WARNING,SEVERE
+org.scoja.client.j2selog.SyslogHandler.program = recoja${parameter:0:URL}
+org.scoja.client.j2selog.SyslogHandler.message = \
+  ${parameter:0:URL:\t\n\r|}|${date}|${sequence}|${thread}|${logger}|${level}|${class}|${method}|${message:URL:|}|${exceptionclass:URL:|}|${exceptionmessage:URL:|}|${stacktrace:URL}
+#org.scoja.client.j2selog.SyslogHandler.packetlimit = 1024
+org.scoja.client.j2selog.SyslogHandler.terminator = zero
+
+org.scoja.client.j2selog.level = FINEST

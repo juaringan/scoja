@@ -1,0 +1,32 @@
+#!/bin/sh
+
+. /etc/profile
+
+BASEDIR=${SCOJA_HOME:-/opt/scoja}
+
+case "$1" in
+'start')
+	sh ${BASEDIR}/scoja.sh -r 5s \
+	-G /etc/scoja/all.conf \
+	> /var/log/scoja.log 2>&1 &
+        echo $! > /var/run/scoja.pid
+        ;;
+
+'stop')
+        if [ -f /var/run/scoja.pid ]; then
+            pkill -P $(cat /var/run/scoja.pid)
+            rm /var/run/scoja.pid
+        fi
+        ;;
+
+'restart')
+        $0 stop
+        $0 start
+        ;;
+
+*)
+        echo "Usage: $0 { start | stop | restart }"
+        exit 1
+        ;;
+esac
+exit 0

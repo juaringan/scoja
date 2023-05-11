@@ -1,0 +1,120 @@
+<!--
+   Scoja: Syslog COllector in JAva
+   Copyright (C) 2003  Mario Martínez
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+-->
+<body>
+
+This package is an extension of Java IO capabilities.
+In fact, several Posix IO facilities are implemented trying to imitate,
+as much as possible, standard Java IO APIs and semantics.
+
+<!-- ============================================================ -->
+<h3>Socket options</h3>
+There are a lot of socket options, not all having a descriptive name.
+In this section purpose is to collect information for this options:
+an explanation and when and for which kind of socket is sensible to use
+each of them.
+
+<p>
+(Copied from GNU libc manual):
+<dl>
+<dt>SO_DEBUG
+<dd>This option toggles recording of debugging information in the
+    underlying protocol modules. The value has type int; a nonzero value
+    means <b>yes</b>.
+    
+<dt>SO_REUSEADDR
+<dd>This option controls whether bind (see Setting Address) should
+    permit reuse of local addresses for this socket. If you enable this
+    option, you can actually have two sockets with the same Internet port
+    number; but the system won't allow you to use the two
+    identically-named sockets in a way that would confuse the
+    Internet. The reason for this option is that some higher-level
+    Internet protocols, including FTP, require you to keep reusing the
+    same port number. 
+    <p>
+    The value has type int; a nonzero value means <b>yes</b>.
+
+<dt>SO_KEEPALIVE
+<dd>This option controls whether the underlying protocol should
+    periodically transmit messages on a connected socket. If the peer
+    fails to respond to these messages, the connection is considered
+    broken. The value has type int; a nonzero value means
+    <b>yes</b>.
+
+<dt>SO_DONTROUTE
+<dd>This option controls whether outgoing messages bypass the normal
+    message routing facilities. If set, messages are sent directly to the
+    network interface instead. The value has type int; a nonzero value
+    means <b>yes</b>.
+
+<dt>SO_LINGER
+<dd>This option specifies what should happen when the socket of a type
+    that promises reliable delivery still has untransmitted messages
+    when it is closed; see Closing a Socket. The value has type struct
+    linger. 
+    <p>
+    Data Type: <b>struct linger</b>
+    This structure type has the following members:
+    <dl>
+    <dt>int l_onoff
+    <dd>This field is interpreted as a boolean. If nonzero, close
+        blocks until the data are transmitted or the timeout period has
+        expired. 
+    <dt>int l_linger
+    <dd>This specifies the timeout period, in seconds. 
+    </dl>
+
+<dt>SO_BROADCAST
+<dd>This option controls whether datagrams may be broadcast from the
+    socket. The value has type int; a nonzero value means
+    <b>yes</b>.
+
+<dt>SO_OOBINLINE
+<dd>If this option is set, out-of-band data received on the socket is
+    placed in the normal input queue. This permits it to be read using
+    read or recv without specifying the MSG_OOB flag. See Out-of-Band
+    Data. The value has type int; a nonzero value means
+    <b>yes</b>.
+
+<dt>SO_SNDBUF
+<dd>This option gets or sets the size of the output buffer. The value
+    is a size_t, which is the size in bytes.
+    
+<dt>SO_RCVBUF
+<dd>This option gets or sets the size of the input buffer. The value
+    is a size_t, which is the size in bytes.
+    
+<dt>SO_STYLE, SO_TYPE
+<dd>This option can be used with getsockopt only. It is used to get
+    the socket's communication style. SO_TYPE is the historical name,
+    and SO_STYLE is the preferred name in GNU. The value has type int
+    and its value designates a communication style; see Communication
+    Styles.
+
+<dt>SO_ERROR
+<dd>This option can be used with getsockopt only. It is used to reset
+    the error status of the socket. The value is an int, which
+    represents the previous error status.
+</dl>
+
+
+<!-- ============================================================ -->
+<p><b>Closing</b>
+
+
+</body>

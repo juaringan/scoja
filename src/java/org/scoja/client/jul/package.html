@@ -1,0 +1,56 @@
+<!--
+   Scoja: Syslog COllector in JAva
+   Copyright (C) 2011  Bankinter, S.A.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+ 
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+-->
+<body>
+This is a syslog plugin to the JUL (java.util.logging) logging package.
+Its main goal is to fine-control the mapping from JUL to syslog.
+
+<p><b>Syslog concepts</b>
+In JUL, the base logging method is
+{@link java.util.logging.Logger#log(LogRecord)}.
+The LogRecord class has no extension capability to configure the behaviour of
+special handlers.
+This package introduces {@link AttributedLogRecord} as a general way to
+add attributes that handlers can look for in order to change their behaviour.
+All handlers in this package check whether the received LogRecord is a
+AttributedLogRecord, and search for a SyslogAttribute attribute.
+<p>
+Nevertheless, it is not necessary to work with LogRecords neither with
+SyslogAttribute in the code.
+The configuration proccess is flexible enough to introduce syslog info.
+
+<p><b>Handlers</b>
+This package defines 2 Handlers, that are usually used chained.
+The {@link org.scoja.client.jul.SyslogHandler} handler is the base syslog
+sender.
+See its javadoc for its capabilities.
+Its main goal is to send a log record to a syslog collector.
+<p>
+The {@link org.scoja.client.jul.MessageSyslogAttributer} is a enhacing handler.
+Its goal is to enrich the current LogRecord with a SyslogAttribute.
+See its javadoc for the details and a some configuration examples.
+
+<p><b>Layout</b>
+When producing a syslog message, both the program and the message should be
+built from data in the log record.
+The handlers in this package allow a layout microlanguage to define the way
+that those two parts are constructed.
+The microlanguage is defined in {@link org.scoja.client.jul.EventLayout}.
+When a property is specified as needing a layout, it will be given to
+EventLayout for interpretation.
+</body>

@@ -1,0 +1,59 @@
+<body>
+Netflow es un protocolo desarrollado por Cisco que han adoptado muchos
+dispositivos y programas sonda.
+Por ahora se han definido 10 versiones, pero sólo se han hecho
+públicas las versiones 1, 5, 6, 7, 8, 9 y 10.
+Las versiones más normales son la 5 y la 7.
+Hasta la versión 7, el protocolo es muy simple y las variaciones entre
+versiones son pequeños añadidos o eliminaciones de campos, o algún
+intercambio.
+En la versión 8 el protocolo crece sustancialmente, porque el registro
+para los flows se subdivide en función del tipo de origen o
+información.
+Pero sigue siendo un protocolo fijo.
+La única descripción razonable que he encontrado para estas versiones
+está <a href="http://netflow.caligare.com/index.htm">aquí</a>.
+
+<p>
+En la versión 9 la cosa cambia sustancialmente.
+Se le añade una capa de metainformación, para definir la estructura de
+los eventos, que esencialmente es una enumeración de los campos y su
+tamaño.
+Pero no se va excesivamente lejos en las capacidades de definición
+semántica, porque cada tipo de contenido se identifica con un número y
+en las especifiaciones se listan estos números, con un nombre canónico
+y su significado.
+Hay un 
+<a href="{@docRoot}/../../rfcs/netflow/rfc3954-CiscoSystemsNetFlowServicesExportV9.txt">
+rfc</a> publicado por Cisco que detalla esta versión del protocolo.
+
+<p>
+La versión 10, que también se conoce como IPFIX (IP Flow Information
+eXport), sigue en la línea de la 9.
+Parece que la cosa ha crecido sustancialmente porque ahora hay
+bastantes más RFCs:
+<a href="{@docRoot}/../../rfcs/netflow/rfc5101-SpecificationOfTheIPFIXProtocol.txt">
+rfc5101</a>,
+<a href="{@docRoot}/../../rfcs/netflow/rfc5102-InformationModelForIPFIX.txt">
+rfc5102</a>,
+<a href="{@docRoot}/../../rfcs/netflow/rfc5103-BidirectionalFlowExportUsingIPFIX.txt">
+rfc5103</a>,
+<a href="{@docRoot}/../../rfcs/netflow/rfc5153-IPFIXImplementationGuidelines.txt">
+rfc5153</a>,
+<a href="{@docRoot}/../../rfcs/netflow/rfc5470-ArchitectureForIPFIX.txt">
+rfc5470</a>.
+
+<p>
+En
+<a href="http://netflow.caligare.com/index.htm">esta web</a>
+hay muy buena información sobre netflow:
+muy sintetizada, muy bien organizada y muy extensa.
+En particular, está lo que se necesita:
+<a href="http://netflow.caligare.com/netflow_format.htm">una lista</a>
+con todos los protocolos.
+Está un poco anticuada, porque no tratan la versión 10,
+pero no importa porque las versiones 9 y 10 están muy bien documentadas
+en RFCs. 
+De hecho lo que suele encontrarse es la información de las versiones viejas,
+que, sin embargo, son la usadas en la práctica.
+</body>

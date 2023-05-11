@@ -1,0 +1,40 @@
+#!/usr/bin/expect --
+
+set rootfile "CVS/Root"
+set conffilename "~/.cvxpass"
+
+if {![file exists $rootfile]} {
+    puts stderr "Not in a CVS directory"
+    exit
+}
+if {![file exists $conffilename]} {
+    puts stderr "No $conffilename file"
+    exit
+}
+
+set f [open $rootfile]
+set root [string trim [read $f]]
+close $f
+
+puts $root
+
+set f [open $conffilename "r"]
+set lines [split [read $f] "\n"]
+close $f
+foreach line $lines {
+    if {[lindex $line 0] == $root} {
+	set password [lindex $line 1]
+	break
+    }
+}
+
+
+eval spawn cvs $argv
+
+expect {
+    "password: " {
+    	send "$password\r\n"
+    }
+}
+
+interact

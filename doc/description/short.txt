@@ -1,0 +1,2 @@
+A multithreaded reimplementation of syslogd/syslog-ng
+in Java. Scoja is for Syslog COllector in JAva.

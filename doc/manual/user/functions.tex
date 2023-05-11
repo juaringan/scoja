@@ -1,0 +1,35 @@
+% A full description of each function, with its parameters.
+
+\section{Functions}
+
+
+%======================================================================
+\subsection{Avoiding DoS with {\tt confine} function}
+It is usual to split logs according to a value extracted from the
+event.
+Some sources for these values are secure: timestamp or priority.
+But when using a literal string from the tag or the message, it is
+easy to do a DoS attack to Scoja if no countermeasure is taken.
+
+One posibility is to use {\tt mapping}; but the set of values must be
+fixed and known when defining the configuration file.
+Otherwise, {\tt confine} function is the best choice.
+{\tt confine} restrict the number of different values that can happen
+in a period of time.
+It needs a first anonymous compulsory argument with the expression to confine.
+A list with the optional tagged arguments follows:
+\begin{description}
+  \item[{\tt history}]
+    How long a legal value is remembered.
+    Optional; default value is one day.
+  \item[{\tt periods}]
+    {\tt history} is splitted in {\tt periods} periods.
+    Optional; default value is 24.
+  \item[{\tt max}]
+    Maximum number of different values.
+    Optional; default value is 10.
+  \item[{\tt default}]
+    A string with the value to produce when the limit of different
+    values is exceeded.
+    Optional; default value is {\tt CONFINED}.
+\end{description}

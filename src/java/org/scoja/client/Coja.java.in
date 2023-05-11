@@ -1,0 +1,519 @@
+/* @@AUTO@@ */
+/*
+ * Scoja: Syslog COllector in JAva
+ * Copyright (C) 2003-2005  Mario Martínez
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+package org.scoja.client;
+
+import java.io.IOException;
+import java.io.File;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.io.InputStreamReader;
+import java.io.FileReader;
+import java.io.BufferedReader;
+import java.net.UnknownHostException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketException;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+
+import org.scoja.cc.text.PrettyPrinter;
+import org.scoja.cc.getopt.OptionException;
+import org.scoja.cc.getopt.OptionGetter;
+import org.scoja.cc.getopt.OptionUsage;
+import org.scoja.cc.getopt.Option;
+
+import org.scoja.cc.ntlm.NTLMClient;
+import org.scoja.cc.ntlm.NTLMAuthType;
+import org.scoja.cc.minihttp.HttpClientAuth;
+import org.scoja.cc.minihttp.HttpNoClientAuth;
+import org.scoja.cc.minihttp.NTLMOnHttpClient;
+
+import org.scoja.common.PriorityUtils;
+import org.scoja.util.ByteFall;
+import org.scoja.util.MemoryByteFall;
+import org.scoja.trans.Transport;
+import org.scoja.trans.tcp.TCPConf;
+import org.scoja.trans.tcp.TCPTransport;
+import org.scoja.trans.nbtcp.NBTCPTransport;
+import org.scoja.trans.connect.ConnectTransport;
+import org.scoja.trans.ssl.SSLTransport;
+import org.scoja.trans.ssl.SSLConf;
+import org.scoja.trans.ssl.SSLUtils;
+
+/**
+ * A replacement for Unix logger.
+ */
+public class Coja {
+    public static void main(final String[] args) {
+        final Coja log = new Coja(System.err);
+        try {
+            log.processArguments(args);
+            if (log.shouldHelp()) {
+                log.help();
+            } else {
+                log.doIt();
+            }
+        } catch (Throwable e) {
+            System.err.println("Ended with an error: " + e.getMessage());
+            System.err.println("While sending with: " + log.log);
+            e.printStackTrace(System.err);
+            System.exit(1);
+        }
+    }
+    
+    //======================================================================
+    private static final int DEFAULT_PORT = 514;
+    
+    protected final PrettyPrinter pp;
+    
+    protected boolean helpRequested = false;
+    protected String error = null;
+    
+    protected boolean sendTimestamp = true;
+    protected boolean sendHost = true;
+    protected String tag = "logger";
+    protected int priority = PriorityUtils.DEFAULT_PRIORITY;
+    protected String terminator = Syslogger.ZERO;
+    protected boolean reusing = false;
+    protected boolean transport = false;
+    protected boolean neagle = false;
+    protected boolean blocking = false;
+    protected int nbBufferSize = 64*1024;
+    protected boolean ssl = false;
+    protected char[] keypass = null;
+    protected KeyStore keystore = null;
+    protected boolean connect = false;
+    protected String auth = null;
+    protected String flavor = null;
+    protected String proxyUser = null;
+    protected String proxyPassword = null;
+    protected InetSocketAddress proxyAddress = null;
+    protected String sourceName = null;
+    protected String[] messages = null;
+    
+    protected Syslogger log;
+    protected SpreadingSyslogger slog;
+    
+    protected static final Option[] options = {
+        new Option("h", "help")
+        .withHelp("This help string"),
+        new Option("f", "file").withArgument("file")
+        .withHelp("Log the specified file"),
+        new Option("H", "send-host")
+        .withHelp("Flip host sending flag; initially enabled"),
+        new Option("S", "send-timestamp")
+        .withHelp("Flip timestamp sending flag; initially enabled"),
+        new Option("T", "terminator").withArgument("terminator")
+        .withHelp("Set message terminator; must be one of zero, cr, lf, crlf"),
+        new Option("l", "packet-limit").withArgument("limit")
+        .withHelp("Set max syslog packet size"),
+        new Option("p", "priority").withArgument("priority")
+        .withHelp("Enter the message with the specified priority"
+                + " The priority maybe specified numerically or as a"
+                + " ``facility.level'' pair. For example, ``-p local3.info''"
+                + " logs the message(s) as informational level in the local3"
+                + " facility.  The default is ``user.notice.''"),
+        new Option("t", "tag").withArgument("tag")
+        .withHelp("Mark every line in the log with the specified tag"),
+        new Option("r", "reusing")
+        .withHelp("Flip reusing flag; initially disabled."
+                + " When active, stream sockets (both inet and unix),"
+                + " reuse connection for all messages"),
+        new Option("transport")
+        .withHelp("Flip transport flag; initially disabled."
+                + " When active, use transport implementation when available"),
+        new Option("delay", "neagle")
+        .withHelp("Flip Neagle algorithm (data delay) for TCP transport"
+                + "; initially disabled"),
+        new Option("block")
+        .withHelp("Flip block flag; initally enabled."
+                + " When active, data is send with non-blocking sockets"
+                + " (Only for testing purposes)"),
+        new Option("nb-buffer-size").withArgument("size")
+        .withHelp("In non-blocking mode, the size of the buffer to keep data"
+                + " while the stack of protocols is negotiating"),
+        new Option("ssl")
+        .withHelp("Flip ssl flag; initially disabled."
+                + " When ssl and transport are active, transfer is protected"
+                + " with SSL"),
+        new Option("keypass").withArgument("password")
+        .withHelp(""),
+        new Option("keystore").withArgument("jksfile")
+        .withHelp(""),
+        new Option("connect")
+        .withHelp("Flip connect flag; initially disabled."
+                + " When connect and transport are active, transfer is"
+                + " send through an HTTP proxy (see --proxy)"),
+        new Option("proxy").withArgument("host:port")
+        .withHelp("Address of the HTTP proxy"),
+        new Option("auth").withArgument("kind")
+        .withHelp("Proxy authentication method; legal values: none, ntlm"),
+        new Option("auth-flavor").withArgument("flavor")
+        .withHelp("Proxy authentication flavor"
+                + "; for `none' authentication has no meaning"
+                + "; for `ntlm' authentication"
+                + ": lm, ntlm, lm_v2, ntlm_v2, ntlm2_session, anonymous"),
+        new Option("user").withArgument("user")
+        .withHelp("Proxy user name"),
+        new Option("password").withArgument("passwd")
+        .withHelp("Proxy password"),
+        new Option("u", "unix-stream").withArgument("socket")
+        .withHelp("Write to stream socket as specified with socket"),
+        new Option("d", "unix-datagram").withArgument("socket")
+        .withHelp("Write to datagram socket as specified with socket"),
+        new Option("U", "tcp", "inet-stream").withArgument("host[:port]")
+        .withHelp("Log to the specified `host' and `port'"),
+        new Option("D", "udp", "inet-datagram").withArgument("host[:port]")
+        .withHelp("Log to the specified `host' and `port'"),
+    };
+    protected final OptionGetter getopt = new OptionGetter(options);
+    
+    public Coja(final PrintStream messageChannel) {
+        this.pp = new PrettyPrinter(messageChannel);
+    }    
+    
+    public boolean shouldHelp() {
+        return helpRequested || error != null;
+    }
+    
+    public void help() {
+        if (error != null) {
+            pp.print("ERROR: " + error + "\n\n").flush();
+        }
+        pp.print("java " + getClass().getName() + " <options> [message]"
+                + "\n  or"
+                + "\ncoja.sh <options> [message]"
+                + "\n  A Java alternative to Unix `logger'."
+                + "\n  A GNU GPLed program from the Scoja project."
+                + "\n  (Scoja) Version"
+                + " @@MAJORVERSION@@.@@MIDDLEVERSION@@.@@MINORVERSION@@"
+                + " (built at @@BUILDDATE@@)"
+                + "\nOptions:")
+            .indent().println().print(getopt).outdent().println().flush();
+    }
+    
+    public void processArguments(final String[] args) {
+        getopt.reset(args);
+        try {
+            for (;;) {
+                final OptionUsage ou = getopt.next();
+                if (ou == null) break;
+                final Option opt = ou.getOption();
+                if (opt.equals("help")) {
+                    helpRequested = true;
+                } else if (opt.equals("file")) {
+                    sourceName = ou.getValue();
+                } else if (opt.equals("send-timestamp")) {
+                    sendTimestamp = !sendTimestamp;
+                } else if (opt.equals("send-host")) {
+                    sendHost = !sendHost;
+                } else if (opt.equals("terminator")) {
+                    final String name = ou.getValue().toLowerCase();
+                    if ("zero".equals(name)) terminator = Syslogger.ZERO;
+                    else if ("cr".equals(name)) terminator = Syslogger.CR;
+                    else if ("lf".equals(name)) terminator = Syslogger.LF;
+                    else if ("crlf".equals(name)) terminator = Syslogger.CRLF;
+                    else {
+                        error = "Unknown terminator " + ou.getValue();
+                        return;
+                    }
+                } else if (opt.equals("priority")) {
+                    final int pri = PriorityUtils.parsePriority(ou.getValue());
+                    if (pri == PriorityUtils.UNKNOWN_PRIORITY) {
+                        error = "Unknown priority " + ou.getValue();
+                        return;
+                    } else {
+                        priority = pri;
+                    }
+                } else if (opt.equals("tag")) {
+                    tag = ou.getValue();
+                } else if (opt.equals("reusing")) {
+                    reusing = !reusing;
+                } else if (opt.equals("transport")) {
+                    transport = !transport;
+                } else if (opt.equals("neagle")) {
+                    neagle = !neagle;
+                } else if (opt.equals("block")) {
+                    blocking = !blocking;
+                } else if (opt.equals("nb-buffer-size")) {
+                    try {
+                        nbBufferSize = Integer.parseInt(ou.getValue());
+                    } catch (NumberFormatException e) {
+                        throw new OptionException(
+                            "Illegal buffer size `" + ou.getValue() + "'");
+                    }
+                } else if (opt.equals("ssl")) {
+                    ssl = !ssl;
+                } else if (opt.equals("keypass")) {
+                    keypass = ou.getValue().toCharArray();
+                } else if (opt.equals("keystore")) {
+                    try {
+                        keystore = loadKeyStore(ou.getValue());
+                    } catch (Throwable e) {
+                        error = "Cannot load keystore `" + ou.getValue()
+                            + "': " + e.getMessage();
+                        return;
+                    }
+                } else if (opt.equals("connect")) {
+                    connect = !connect;
+                } else if (opt.equals("proxy")) {
+                    final InetSocketAddress address;
+                    try {
+                        address = parseAddress(ou.getValue(), -1);
+                    } catch (Throwable e) {
+                        error = "Illegal proxy address `" + ou.getValue()
+                            + "': " + e.getMessage();
+                        return;
+                    }
+                    proxyAddress = address;
+                } else if (opt.equals("auth")) {
+                    auth = ou.getValue().toLowerCase();
+                } else if (opt.equals("auth-flavor")) {
+                    flavor = ou.getValue();
+                } else if (opt.equals("user")) {
+                    proxyUser = ou.getValue();
+                } else if (opt.equals("password")) {
+                    proxyPassword = ou.getValue();
+                } else if (opt.equals("unix-datagram")
+                        || opt.equals("unix-stream")) {
+                    try {
+                        if (opt.equals("unix-datagram")) {
+                            addUnixDatagramSyslogger(ou.getValue());
+                        } else {
+                            addUnixStreamSyslogger(ou.getValue());
+                        }
+                    } catch (Throwable e) {
+                        error = "While creating logger to " + ou.getValue()
+                            + ": " + e.getMessage();
+                        return;
+                    }
+                } else if (opt.equals("inet-datagram")
+                        || opt.equals("inet-stream")) {
+                    final InetSocketAddress address;
+                    try {
+                        address = parseAddress(ou.getValue());
+                    } catch (Throwable e) {
+                        error = "Illegal destination `" + ou.getValue()
+                            + "': " + e.getMessage();
+                        return;
+                    }
+                    try {
+                        if (opt.equals("inet-datagram")) {
+                            addUDPSyslogger(address);
+                        } else {
+                            addTCPSyslogger(address);
+                        }
+                    } catch (Throwable e) {
+                        error = "While creating logger to " + address
+                            + ": " + e.getMessage();
+                        return;
+                    }
+                } else {
+                    throw new OptionException("Unsupported option " + opt);
+                }
+            }
+        } catch (OptionException e) {
+            error = e.getMessage();
+        }
+        if (getopt.hasRemaining()) {
+            messages = getopt.getRemaining().toArray(new String[0]);
+        }
+    }
+    
+    protected InetSocketAddress parseAddress(final String address)
+    throws java.net.UnknownHostException {
+        return parseAddress(address, DEFAULT_PORT);
+    }
+    
+    protected InetSocketAddress parseAddress(final String address,
+            final int defaultPort)
+    throws java.net.UnknownHostException {
+        String host;
+        int port;
+        final int colon = address.indexOf(':');
+        if (colon == -1) {
+            if (defaultPort >= 0) {
+                host = address;
+                port = defaultPort;
+            } else throw new IllegalArgumentException(
+                "Bad address `" + address + "': port is absent");
+        } else {
+            host = (colon == 0) ? "localhost" : address.substring(0,colon);
+            port = -1;
+            try {
+                port = Integer.parseInt(address.substring(colon+1));
+            } catch (NumberFormatException e) {}
+            if (port < 0) {
+                throw new IllegalArgumentException(
+                    "Bad port number " + address.substring(colon+1));
+            }
+        }
+        return new InetSocketAddress(InetAddress.getByName(host), port);
+    }
+    
+    protected KeyStore loadKeyStore(final String ksfile)
+    throws IOException, GeneralSecurityException {
+        return SSLUtils.loadKeyStore(new File(ksfile), keypass);
+    }    
+    
+    protected void addUDPSyslogger(final InetSocketAddress address)
+    throws SocketException {
+        addSyslogger(new UDPSyslogger(address));
+    }
+    
+    protected void addTCPSyslogger(final InetSocketAddress address)
+    throws SocketException, GeneralSecurityException, UnknownHostException,
+           IOException {
+        if (transport) {
+            addSyslogger(buildTransportSyslogger(address));
+        } else if (reusing) {
+            addSyslogger(new ReusingTCPSyslogger(address));
+        } else {
+            addSyslogger(new TCPSyslogger(address));
+        }
+    }
+    
+    protected Syslogger buildTransportSyslogger(
+        final InetSocketAddress address)
+    throws GeneralSecurityException, UnknownHostException, IOException {
+        final boolean withConnect = connect && proxyAddress != null;
+        final InetSocketAddress baseAddress
+            = withConnect ? proxyAddress : address;
+        final Transport<TCPConf> base = blocking ? new TCPTransport(baseAddress)
+            : new NBTCPTransport(baseAddress);
+        base.configuration().setNoDelay(!neagle);
+        Transport trans = base;
+        if (withConnect) {
+            final HttpClientAuth cauth;
+            if (auth == null || "none".equals(auth)) {
+                cauth = new HttpNoClientAuth(true);
+            } else if ("ntlm".equals(auth)) {
+                final NTLMClient ntlm
+                    = new NTLMClient(proxyUser, proxyPassword);
+                ntlm.setTarget("");
+                ntlm.resolveHost();
+                ntlm.setDomain(null);
+                if (flavor != null) try {
+                    ntlm.setAuth(NTLMAuthType.valueOf(flavor.toUpperCase()));
+                } catch (Throwable e) {
+                    throw new IllegalArgumentException(
+                        "Illegal NTLM flavor `" + flavor + "'");
+                }
+                cauth = new NTLMOnHttpClient(ntlm, true);
+            } else {
+                throw new IllegalArgumentException(
+                    "Unknown `" + auth + "' authentication protocol");
+            }
+            trans = new ConnectTransport(trans, address, cauth);
+        }
+        if (ssl && keystore != null) {
+            final SSLTransport ssl = SSLTransport.tls(trans);
+            final SSLConf conf = ssl.configuration();
+            conf.setTrustManagers(SSLUtils.getTrusts(keystore));
+            if (keypass != null) 
+                conf.setKeyManagers(SSLUtils.getKeys(keystore, keypass));
+            trans = ssl;
+        }
+        ByteFall buffer = trans.isBlocking() ? null
+            : new MemoryByteFall(nbBufferSize);
+        return new ReusingTransportSyslogger(trans, buffer);
+    }
+    
+    protected void addDefaultSyslogger()
+    throws SocketException {
+        addUnixStreamSyslogger("/dev/log");
+    }
+    
+    protected void addUnixDatagramSyslogger(final String filename)
+    throws SocketException {
+        addSyslogger(new UnixDatagramSyslogger(filename));
+    }
+    
+    protected void addUnixStreamSyslogger(final String filename)
+    throws SocketException {
+        if (reusing) {
+            addSyslogger(new ReusingUnixStreamSyslogger(filename));
+        } else {
+            addSyslogger(new UnixStreamSyslogger(filename));
+        }
+    }
+    
+    protected void addSyslogger(final Syslogger other) {
+        other.enableSendHost(sendHost);
+        other.enableSendTimestamp(sendTimestamp);
+        other.setTag(tag);
+        other.setPriority(priority);
+        other.setTerminator(terminator);
+        if (log == null) {
+            log = other;
+        } else if (slog == null) {
+            slog = new SpreadingSyslogger(log, other);
+            log = slog;
+        } else {
+            slog.add(other);
+        }
+    }
+    
+    public void doIt()
+    throws IOException, LoggingException {
+        if (log == null) addDefaultSyslogger();
+        if (messages != null) {
+            for (int i = 0; i < messages.length; i++) send(messages[i]);
+        }
+        if (sourceName != null) sendFile(sourceName);
+        else if (messages == null) sendFile(System.in);
+    }
+    
+    public void send(final String message)
+    throws LoggingException {
+        log.log(message);
+    }
+    
+    public void sendFile(final String filename)
+    throws IOException, LoggingException {
+        if ("-".equals(filename)) {
+            sendFile(System.in);
+        } else {
+            final Reader in = new FileReader(filename);
+            sendFile(in);
+        }
+    }
+    
+    public void sendFile(final InputStream in)
+    throws IOException, LoggingException {
+        sendFile(new InputStreamReader(in));
+    }
+    
+    public void sendFile(final Reader in)
+    throws IOException, LoggingException {
+        sendFile(new BufferedReader(in));
+    }
+    
+    public void sendFile(final BufferedReader in)
+    throws IOException, LoggingException {
+        for (;;) {
+            final String line = in.readLine();
+            if (line == null) break;
+            send(line);
+        }
+    }
+}

@@ -1,0 +1,68 @@
+ RELEASE 0.10.0
+----------------
+
+- Small changes to LimitFilter: more detailed data send to the internal log.
+
+- "include" has been extended with glob patterns to load several files.
+
+- A new counter link that keeps several measures indexed with a template.
+  It is useful when taking statistics by the tag content.
+
+ TODO
+------
+
+- En StdSyslogEventParser.trim: cambiar el paso de bytes a char por un CharSet.
+  Esto hay que probar cómo influye en los rendimientos.
+  
+- Consider to substitute NIO code with Grizzly or QuickServer.
+
+- Configurable parsers. At least, a way to configure white space trimming.
+
+- Accept several events in one UDP packet.
+
+- A faster Scoja native configuration files load code.
+
+- A pool of open server sockets.
+  Configuration files don't open/close this objects directly.
+  So reloading updated configuration files doesn't have problems with
+  still opened sockets.
+  
+- What about message enconding?
+  Now code supposes that Latin1 encoding is used.
+  This should be configurable for the message body.
+
+- Translate this fucking proyect to english.
+
+- A lot of JUnit tests.
+
+- mapping should have a fail mode: if key is not found, event will not pass.
+  There is a problem to implement this functionality:
+  mapping are expression and only links can block events.
+  The simplest solution is to return a null to mark that the expression
+  evaluation failed and the event cannot pass.
+
+- useSendTimestamp should change default timestamp only for the logging
+  net following this action.
+  
+- Avoid all Python composition at Java code.
+  It is easier to cover Java objects with Python object that take care
+  of link and expression composition.
+
+- Recoja:
+  Set user, group and mode of the generated files.
+  
+- SSL, in Scoja and events routing.
+
+- Acoja utility.
+
+- xSockets can be a good base for network sources.
+
+- See rsyslog.
+
+- RELP: Reliable Event Logging Protocol.
+
+- Netflow
+
+- SNMP
+
+- WebSockets to do data transfer through a proxy.

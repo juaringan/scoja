@@ -1,0 +1,19 @@
+python.path
+    Equivalent to CPython's PYTHONPATH environment variable
+python.cachedir
+    The directory to use for caches - currently just package information. This directory must be writable by the user. If the directory is an absolute path, it is used as given, otherwise it is interpreted as relative to sys.prefix.
+python.verbose
+    Sets the verbosity level for varying degrees of informative messages. Valid values in order of increasing verbosity are "error", "warning", "message", "comment", "debug"
+python.security.respectJavaAccessibility
+    Normally, Jython can only provide access to public members of classes. However if this property is set to false and you are using Java 1.2 then Jython can access non-public fields, methods, and constructors.
+python.jythonc.compiler
+    The Java compiler to use with the jythonc tool, which now generates Java source code. This should be the absolute path to a Java compiler, or the name of a compiler on your standard PATH.
+python.jythonc.classpath
+    Extensions to the standard java.class.path property for use with jythonc. This is useful if you use Jikes as your compiler.
+python.jythonc.compileropts
+    Options to pass to the Java compiler when using jythonc.
+python.console
+    The name of a console class. An alternative console class that supports GNU readline can be installed with this property. Jython already include such a console class and it can be enabled by setting this property to org.python.util.ReadlineConsole
+python.console.readlinelib
+    Allow a choice of backing implementation for GNU readline support. Can be either GnuReadline or Editline. This property is only used when python.console is set to org.python.util.ReadlineConsole.
+

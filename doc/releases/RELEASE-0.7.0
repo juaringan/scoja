@@ -1,0 +1,22 @@
+ RELEASE 0.7.0
+---------------
+
+- Now SpreadingSyslogger is working like any other Syslogger.
+  Mainly, reset() is reseting all the grouped syslogger.
+  
+- Data hashing to make sparse indices. It should work with every data type.
+    set("a", hash(get("IP"))) >> toFile("/..../$a/data.log")
+
+- Support for RFC3195 Raw profile.
+  It deppends on scoja/beep subproject.
+  
+- Some statistical information: 
+    cpu usage,
+    packets, bytes and events read from sources,
+    packets written to files.
+  It is necesary to enable it on link (with measured = yes),
+  and to process the output of the measurer() link.
+  Statistic collection period defaults to 5 minutes, but can be configured
+  with configureStats()
+
+- Operation to configure open files cache: configureFileCache().

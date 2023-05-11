@@ -1,0 +1,38 @@
+grant codebase "file:${scoja.home}/scoja.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-cc.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-beep.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-compression.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-rpc.jar" {
+  permission java.security.AllPermission "*";
+};
+
+grant codebase "file:${scoja.home}/jython.jar" {
+  //File.getAbsolutePath accesses user.dir property.
+  permission java.util.PropertyPermission "user.dir", "read";
+  //The package cache is stored at
+  permission java.io.FilePermission "${scoja.home}/cachedir/-", "read,write";
+  //To build the package cache, the folling files must be read
+  permission java.io.FilePermission "${scoja.home}/scoja.jar", "read";
+  permission java.io.FilePermission "${scoja.home}/scoja-cc.jar", "read";
+  permission java.io.FilePermission "${scoja.home}/scoja-compression.jar", "read";
+  permission java.io.FilePermission "${scoja.home}/scoja-rpc.jar", "read";
+  permission java.io.FilePermission "${scoja.home}/scoja-beep.jar", "read";
+  permission java.io.FilePermission "${scoja.home}/jython.jar", "read";
+  //File processing needs codecs that are stored at
+  permission java.io.FilePermission "${scoja.home}/Lib", "read";
+  permission java.io.FilePermission "${scoja.home}/Lib/-", "read";
+  //Jython loads classes with its own classloader.
+  permission java.lang.RuntimePermission "createClassLoader";
+  //Jython pass its protection domain to the created class loaders.
+  permission java.lang.RuntimePermission "getProtectionDomain";
+  //Resolution must be enabled, usually to resolve remote locations to send to.
+  permission java.net.SocketPermission "*", "resolve";
+};

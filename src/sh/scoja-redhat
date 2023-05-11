@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# chkconfig: 2345 11 89
+# description: Scoja
+### BEGIN INIT INFO
+# Provides: $syslog
+### END INIT INFO
+
+. /etc/profile
+
+BASEDIR=${SCOJA_HOME:-/usr/local/scoja}
+
+case "$1" in
+'start')
+    export LANG=en_US.ISO-8859-1
+    export JAVA_HOME=/usr/local/java/
+    ulimit -Hn 8192
+    ulimit -n 8192
+    sh ${BASEDIR}/scoja.sh -r 5s -G ${BASEDIR}/conf/all.conf \
+    > /var/log/scoja.log 2>&1 &
+    echo $! > /var/run/scoja.pid
+    ;;
+
+'stop')
+    pkill -f org.scoja.server.Scoja 
+    rm -f /var/run/scoja.pid
+    ;;
+
+'restart')
+    $0 stop
+    $0 start
+        ;;
+
+*)
+    echo "Usage: $0 { start | stop | restart }"
+    exit 1
+    ;;
+esac
+exit 0

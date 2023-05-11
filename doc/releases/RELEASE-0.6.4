@@ -1,0 +1,16 @@
+ RELEASE 0.6.4
+---------------
+
+- Log4j appender revised so that it is fully configurable through an
+  standard log4j properties configuration file.
+
+- Scoja clients work with jdk1.3.
+
+- Sources (both inet and unix) are a bit more robust.
+  If an error occurs while opening the socket, it keeps retrying.
+  shouldStop signal works now correctly with tcp source.
+
+- A few details concerning internal events tags.
+  Now, all events has a tag with at least 3 parts (syslog.scoja.*[...]).
+
+- New function "instance" to access template capabilities.

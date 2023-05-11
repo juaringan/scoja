@@ -1,0 +1,53 @@
+/*
+ * Scoja: Syslog COllector in JAva
+ * Copyright (C) 2003  Mario Martínez
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+package org.scoja.server.template;
+
+import java.io.PrintWriter;
+import java.util.Calendar;
+import org.scoja.server.core.EventContext;
+
+public class StringDateHole extends DateHoleSkeleton {
+
+    protected final int key;
+    protected final int shift;
+    protected final String[] values;
+
+    public StringDateHole(final String name, final int whichTimestamp,
+                          final int key, final String[] values) {
+        this(name, whichTimestamp, key, 0, values);
+    }
+
+    public StringDateHole(final String name, final int whichTimestamp,
+                          final int key, final int shift,
+                          final String[] values) {
+        super(name, whichTimestamp);
+        this.key = key;
+        this.shift = shift;
+        this.values = values;
+    }
+
+    public void toFilename(final StringBuffer sb, final EventContext ectx) {
+        sb.append(values[get(ectx,key) + shift]);
+    }
+    
+    public void writeTo(final PrintWriter out, final EventContext ectx) {
+        out.print(values[get(ectx,key) + shift]);
+    }
+}

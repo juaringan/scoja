@@ -1,0 +1,357 @@
+% A full description of each target, with its parameters.
+
+\section{Targets}
+
+%======================================================================
+\subsection{Common elements}\label{target.common}
+
+%----------------------------------------------------------------------
+\subsubsection{Controling flushing}\label{target.common.flushing}
+There are three flushing methods:
+\begin{description}
+  \item[{\tt BUFFER}]
+    Data is send to the output (file, console, network) when internal
+    buffers are filled.
+  \item[{\tt FLUSH}]
+    Data is send to the OS after each event.
+  \item[{\tt SYNC}]
+    Does {\tt FLUSH} and sync request to the OS.
+\end{description}
+These methods can be used directly as a legal value for {\tt flush}
+attribute.
+
+To {\tt FLUSH} or {\tt SYNC} only after $n$ events are send to the
+target, it is necessary to use a full {\tt flushing} element.
+This elements has the following attributes:
+\begin{description}
+  \item[{\tt method}]
+    The flushing method, that can be {\tt BUFFER}, {\tt FLUSH}, or
+    {\tt SYNC}.
+    Optional; default value is {\tt FLUSH}.
+  \item[{\tt after}]
+    Defines after how many events a flushing occurs.
+    Should be an interger greater than or equal to 1.
+    Optional; default value is 1.    
+  \item[{\tt buffer}]
+    Size of internal buffer in bytes.
+    If it is less than or equal to 0, no buffer is build.
+    Optional; default value is 0.
+\end{description}
+
+Some examples.
+To flush data to the OS after 10 events:
+\begin{verbatim}
+  flushing(method = FLUSH, after = 10)
+\end{verbatim}
+Because {\tt FLUSH} is the default method, previous flushing element
+can be abbreviated to
+\begin{verbatim}
+  flushing(after = 10)
+\end{verbatim}
+To fully synchronize a file after 10 events
+\begin{verbatim}
+  flushing(method = SYNC, after = 10)
+\end{verbatim}
+Flushing elements are regular Python values;
+it can be stored at a variable
+or given directly as a value to {\tt flush} attributes:
+\begin{verbatim}
+  f1 = flushing(after = 10)
+  target1 = toFile("/tmp/scoja/target1", flush = f1)
+  target2 = toFile("/tmp/scoja/target2",
+                   flush = flushing(method = SYNC, after = 10))
+\end{verbatim}
+
+%----------------------------------------------------------------------
+\subsubsection{Controling file building}\label{target.common.building}
+There are many details to configure when creating a new file.
+Element {\tt building} serves this purpose.
+It has the following attributes:
+\begin{description}
+  \item[{\tt fileOwner}]
+    Specifies the file owner.
+    If {\tt None}, process effective user is the file owner.
+    Optional; default is {\tt None}.
+  \item[{\tt fileGroup}]
+    Specifies the file group.
+    If {\tt None}, process effective user is the file owner.
+    Optional; default is {\tt None}.
+  \item[{\tt filePerm}]
+    Specifies file permissions.
+    If {\tt None}, file permissions is the effective user default.
+    Optional; default is {\tt None}.
+    
+  \item[{\tt dirOwner}]
+    Specifies owner for directories that has to be created
+    because they don't exists when opening the file.
+    If {\tt None}, process effective user is the directories owner.
+    Optional; default is {\tt None}.
+  \item[{\tt dirOwner}]
+    Specifies group for directories that has to be created
+    because they don't exists when opening the file.
+    If {\tt None}, process effective group is the directories group.
+    Optional; default is {\tt None}.
+  \item[{\tt dirPerm}]
+    Specifies permissions for directories that has to be created
+    because they don't exists when opening the file.
+    If {\tt None}, directories permissions are the effective user default.
+    Optional; default is {\tt None}.
+  
+  \item[{\tt mkdirs}]
+    Specifies whether directories should be created when opening a
+    file whose path contains directories that doesn't exists.
+    Optional; default is {\tt no}.
+\end{description}
+
+%----------------------------------------------------------------------
+\subsubsection{Templates}\label{target.common.template}
+Templates are the way to build strings out of event data.
+They are mainly used to name files and to specify the format to store
+events.
+
+Templates are just strings; they have no special syntax.
+But when a template is expected, \verb|$| character has a special
+meaning.
+Characters after \verb|$| are considered to be a variable name;
+the template value will be computed substituting these variables for
+their values.
+There are predefined variable names that will be replaced by certain
+event parts;
+value of non-predefined variables will be looked for in the event
+context.
+Finally, to get a \verb|$| write \verb|$$|.
+
+Before being used, templates are \emph{preprocessed}.
+This preprocessing can be forced with the function {\tt template}.
+Its result can be used wherever a template is required.
+
+Usually variables are formed by alphanumeric characters;
+the first non-alphanumeric character ends the variable.
+For example, the following template
+\begin{verbatim}
+  "/tmp/scoja/$YEAR/$MONTH/$DAY/access.log"
+\end{verbatim}
+contains three (predefined) variables named 
+  \verb|YEAR|, \verb|MONTH| and \verb|DAY|.
+If we want to use non-alphanumeric characters at a variable name,
+or if an alphanumeric characters follows after the variable,
+the variable name should be surrounded with braces.
+For instance
+\begin{verbatim}
+  "<${PRIORITY#}>${@DATE} ${HOST} ${PROGRAM}: ${MESSAGE}"
+\end{verbatim}
+Of course, braces can be used when not strictly necessary;
+the following template is equivalent to the first one:
+\begin{verbatim}
+  "/tmp/scoja/${YEAR}/${MONTH}/${DAY}/access.log"
+\end{verbatim}
+We recommend to always use braces.
+
+These are the predefined variables related to Scoja server
+identification.
+\begin{description}
+  \item[{\tt MYIP}]
+    This expands to the scoja server main IP.
+  \item[{\tt MYHOST}]
+    This expands to the scoja server name.
+  \item[{\tt MYCHOST}]
+    This expands to the scoja server full canonical name.
+  \item[{\tt ME}]
+    Expands to the value of the property {\tt org.scoja.server.name},
+    if defined.
+    Otherwise is equivalent to {\tt MYHOST}.
+\end{description}
+
+These are predefined variables not related to dates:
+\begin{description}
+  \item[{\tt FACILITY}]
+    The name of the message facility.
+  \item[{\tt LEVEL}]
+    The name of the message level.
+  \item[{\tt PRIORITY}]
+    The name of the message priority.
+    It is equivalent to \verb|${FACILITY}.${LEVEL}|.
+  \item[{\tt FACILITY\#}]
+    The message facility as a decimal number.
+  \item[{\tt LEVEL\#}]
+    The message level as a decimal number.
+  \item[{\tt PRIORITY\#}]
+    The message priority as a decimal number.
+  
+  \item[{\tt PROGRAM}]
+    The name of the program that send the message.
+  \item[{\tt MESSAGE}, {\tt MSG}]
+    The message contents.
+  \item[{\tt DATA}]
+    The data part: the program, a colon and the message.
+    It is roughly equivalent to \verb|${PROGRAM}: ${MESSAGE}|,
+    but its exact value is extracted verbatim from the event.
+    
+  \item[{\tt IP}]
+    The ip of the last host that send the message.
+  \item[{\tt HOST}]
+    The name of the first host that send the message.
+    This data comes from the message but it can be absent;
+    in this case, this variable behaves as \verb|${RHOST}|.
+  \item[{\tt RHOST}]
+    The host name of the last host that send the message.
+    That is, the name computed with a reverse resolution of the IP.
+  \item[{\tt CRHOST}]
+    The preferred name for the last host that send the message.
+    That is, the canonical name computed with a reverse resolution of the IP.
+  \item[{\tt CHOST}]
+    The preferred name for the first host that send the message.
+    This is computed from the host in the message, or from the IP if
+    the host is absent.
+\end{description}
+
+Two timestamps are attached to each message event:
+one at the source host, when it is generated,
+and another at Scoja, when it is received.
+Both timestamps are useful but have some problems.
+Source timestamp can be absent and can be facked.
+Scoja timestamp isn't the real event date but cannot be facked and it
+is the only way to build date-sorted files on the fly.
+So, Scoja let us to choose which timestamp to use.
+Every predefined variable related to time has three versions:
+\verb|@X|, \verb|X@| and \verb|X|.
+If there is no source timestamp, Scoja timestamp must be used and they
+are equivalent.
+The \verb|X@| version always use Scoja timestamp.
+The \verb|@X| version tries to use source timestamp first.
+The \verb|X| version uses the default timestamp;
+when an event is build, default timestamp is Scoja timestamp, but this
+default can be changed with action {\tt useSendTimestamp}.
+
+Now we will list the default timestamp predefined variables.
+Prepend (append) a \verb|@| to get the corresponding
+source (Scoja) timestamp variable.
+\begin{description}
+  \item[{\tt DATE}, {\tt TIMESTAMP}]
+    Standard syslog date format.
+    It is not a good format because it has neither year nor
+    milliseconds.
+    Example: \verb*|Aug  2 08:40:49|.
+  \item[{\tt SHORTDATE}, {\tt SHORTTIMESTAMP}]
+    A full timestamp, with year but without milliseconds or GMT.
+    Example: \verb*|2003-08-02 08:40:49|.
+  \item[{\tt LONGDATE}, {\tt LONGTIMESTAMP}]
+    A full timestamp, with year an with 3 digit millisecond, but
+    without GMT.
+    Example: \verb*|2003-08-02 08:40:49.123|.
+  \item[{\tt GMTDATE}, {\tt GMTTIMESTAMP}]
+    Like {\tt MILLISDATE} but with GMT. 
+    Example: \verb*|2003-08-02 08:40:49.123 GMT+02:00|.   
+    
+  \item[{\tt YEAR}]
+    All the digits of the year
+  \item[{\tt \_YEAR}]
+    The last two digits of the year
+    
+  \item[{\tt MONTH}]
+    Two digits month number (01, \ldots, 12).
+  \item[{\tt \_MONTH}]
+    The month number (1, \ldots, 12).
+  \item[{\tt MONTHNAME}]
+    English full month name, variable length (January, \dots,
+    December).
+  \item[{\tt \_MONTHNAME}]
+    English abbreviated month name (Jan, \dots, Dec).
+    
+  \item[{\tt DAY}]
+    Two digits month day number (00, \ldots, 31).
+  \item[{\tt \_DAY}]
+    Month day number (0, \ldots, 31).
+  
+  \item[{\tt WEEKDAY}]
+    English full weekday name, variable length (Sunday, \dots,
+    Saturday).
+  \item[{\tt \_WEEKDAY}]
+    English abbreviated weekday name (Sun, \dots, Sat).
+    
+  \item[{\tt HOUR}]
+    Two digits hour (00, \dots, 23).
+  \item[{\tt \_HOUR}]
+    An hour (0, \dots, 23).
+    
+  \item[{\tt MINUTE}, {\tt MIN}]
+    Two digits minute (00, \dots, 59).
+  \item[{\tt \_MINUTE}, {\tt \_MIN}]
+    A minute (0, \dots, 59).
+    
+  \item[{\tt SECOND}, {\tt SEC}]
+    Two digits second (00, \dots, 59).
+  \item[{\tt \_SECOND}, {\tt \_SEC}]
+    A second (0, \dots, 59).
+  
+  \item[{\tt MILLISECOND}, {\tt MILLIS}]
+    Three digits millisecond (000, \dots, 999).
+  \item[{\tt \_MILLISECOND}, {\tt \_MILLIS}]
+    A millisecond (0, \dots, 999).
+  
+  \item[{\tt EPOCH}]
+    Time as UTC seconds from the epoch.
+  \item[{\tt MILLIEPOCH}]
+    Time as UTC milliseconds from the epoch.
+  
+  \item[{\tt TZ}]
+    Expands to the standard abbreviated time zone display name.
+    It should not be used, because there are ambiguities.
+  \item[{\tt TZOFFSET}]
+    RFC 822 time zone.
+    Format is
+      $$\mbox{{\it Sign} {\it Hours2} {\it Minutes}}$$
+    where 
+      {\it Sign} is either \verb|+| or \verb|-|,
+      {\it Hour2} is a 2 digits number between 0 and 23,
+      {\it Minute} is a 2 digits number between 0 and 59.
+  \item[{\tt GTZOFFSET}]
+    General time zone.
+    Format is 
+      $$\mbox{{\tt GMT} {\it Sign} {\it Hours} {\tt:} {\it Minutes}}$$
+    where
+      {\it Sign} is either \verb|+| or \verb|-|,
+      {\it Hour} is a 1 or 2 digits number between 0 and 23,
+      {\it Minute} is a 2 digits number between 0 and 59.
+\end{description}
+
+
+%======================================================================
+\subsection{Targets {\tt stdout} and {\tt stderr}}
+Target {\tt stdout} (resp. {\tt stderr}) print log entries at the standard
+output (resp. standard error).
+Both have the same parameters:
+%
+\begin{description}
+  \item[{\tt template}]
+    Specifies the format for the event.
+    It is a template (see~\ref{target.common.template}).
+    
+  \item[{\tt flush}]
+    To describe the flushing details (see~\ref{target.common.flushing}).
+\end{description}
+%
+
+
+%======================================================================
+\subsection{Target {\tt toFile}}
+This target write log entries in a file.
+Templates are used to especify both filename and log entries format.
+%
+\begin{description}
+  \item[{\tt name}] (Compulsory)
+    File where events reaching this link are stored.
+    It is a template (see~\ref{target.common.template}).
+    
+  \item[{\tt template}]
+    Specifies the format for the event.
+    It is a template (see~\ref{target.common.template}).
+    
+  \item[{\tt build}]
+    Describes file building details (see~\ref{target.common.building})
+    such as user, group and permissions.
+    
+  \item[{\tt flush}]
+    Describes flushing details (see~\ref{target.common.flushing}).
+\end{description}
+%

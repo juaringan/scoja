@@ -1,0 +1,23 @@
+ RELEASE 0.6.1
+---------------
+
+- fromTCP keepAlive flag was silently ignored. Fixed!
+
+- SelectingTCPSource lacked a public setter for reuseAddress.
+  fromTCP always failed.
+  
+- New options for sockets: SO_DEBUG, SO_KEEPALIVE, SO_LINGER, TCP_NODELAY.
+
+- SelectingUnixStreamSource now has keepAlive.
+
+- Corrected a stupid bug in StdSyslogEventParser that trimmed characters
+  less than ' ' and ****greater than 128***.
+  So all Latin1\ASCII characters where eliminated.
+  
+- Pol has contributed a bug fix for repeated close on ReusingTCPSyslogger
+  and ReusingUnixStreamSyslogger.
+
+- Pol has contributed an appender for log4j.
+  Although a syslog appender exists in standard log4j distribution, this
+  one has many more characteristics: can send to multiple destinations,
+  with tcp, ...

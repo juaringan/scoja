@@ -1,0 +1,21 @@
+ RELEASE 0.4.0
+---------------
+
+- Binding an UDP socket doesn't work properly.
+  So, there is no way to enable address reusing.
+  To avoid making a decision at source code, fromUDP source has now an
+  attribute to enable this option.
+  Of course, enabling it will raise a runtime error.
+  
+- ReflectiveEntity operative.
+  Now, it is pretty easy to install objects extracted from an
+  arbitrary property or from the execution of an static method.
+  This is used for --secure-with and --posix-provider options.
+
+- Recoja utility almost complete.
+  It has good enough performance.
+  We have implemented a read ahead and delayed writes ability,
+  but our tests have proved no impact on performance.
+  May be they are useful in a multiprocessor machine.
+  Recoja utility classes are in the same .jar that Scoja server (scoja.jar);
+  no plan to split scoja.jar because both programs share several classes.

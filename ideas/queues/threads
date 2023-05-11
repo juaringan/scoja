@@ -1,0 +1,103 @@
+Te lo mando en un txt xq tengo a Victor dando la brasa x aquí.
+
+He tenido una idea para intentar aumentar la tasa de paquetes UDP recibidos.
+Lo que he visto es que se pierden algunos, reletivamente pocos , debido 
+a que el tiempo que emplea entre dos socket.receive() es... digamos alto; es 
+decir, si en el bucle:
+
+while(!shouldStop) {
+
+	socket.receive()
+	
+	
+	final Event event
+                    = new ParsedEvent(packet.getAddress(),
+                                      data, 0, packet.getLength());
+        final EventContext ectx = new EventContext(event);
+        sthread.setEventContext(ectx);
+        link.process(ectx);
+}
+
+
+conseguimos "eliminar" el segundo bloque el nº de datagramas recibidos aumenta.
+Yo lo veo como las BottomHalves de UNIXs donde las interrupciones tienes 
+dos partes una donde inhiben las interrupciones que deben tener duración muy
+corta (top halve) y la otra grestionada en algún otro momento ya con 
+interrupciones habilitadas (bottom halve). Esto sería separar el código éste 
+en 2 partes:
+
+while() {
+	socket.receive()
+	
+	bh.registerPacket()
+}
+
+
+y
+
+la segunda que se ejecutaría con otro hilo en algún otro momento haría la
+parte
+
+	final Event event
+                    = new ParsedEvent(packet.getAddress(),
+                                      data, 0, packet.getLength());
+        final EventContext ectx = new EventContext(event);
+        sthread.setEventContext(ectx);
+        link.process(ectx);
+
+
+
+
+
+
+Hasta aquí lo fácil.
+
+La primera idea fue hacer que todos los hilos (listeners) registrasen los 
+datagramas leídos sobre una estructura (digamos lista) común que los 
+procesaría en algún momento posterior; Esto no funcionó mas que con un hilo.
+Lçogico ya que se formaba un cuello de botella del carajo sobre la lista => nada.
+
+
+Lo segundo fue que hice fue que cada listener lanzase un hilo, llamémosle BottomHalver que procesa todos los datagramas recibidos por ese listener.
+
+esto sería:
+
+
+		registra_en			lee_de
+Listener_1 -------------------> datos_1 <--------------------- BottomHalver_1
+
+		registra_en			lee_de
+Listener_2 -------------------> datos_2 <--------------------- BottomHalver_2
+
+............
+............
+............
+
+
+Problemas.
+
+Yo pensaba que los hilos listener actuaban sobre != objetos UDPSource
+pero luego, de manera dramática me dí cuenta de que No, todos ejecutan 
+el mismo único UDP (cierto?) así que los problemas de sincronización 
+degenerarían en la primera idea.
+
+Al grano, con 1 o 2 hilos la diferencia es sustancial; pasa del 40% sobre 10^5
+datagramas enviados al 75%
+Esto parece indicar que iría bien sobre más ¿esta es mi gran duda? ¿qué opinas?
+Probablemente sobre varias no compense el tener tantos BottomHalves
+
+Digo si piensas que compensa modificar todo, etc.....
+
+Se podrían ver variantes tipo un único BottomHalver que lea de distintas
+estruc. de almacenamiento, una para cada listener,etc,etc.
+
+
+Por cierto, ya subí lo de los UNIXUDPSocket. Falta probarlo en condiciones.
+
+He pensado ponerme ya con los orientados a conexión internos. Hacer que
+no vaya mu mal va a tener su truco. Alguna idea? tb me miraré un poco lo de 
+los targets porque nos faltan bastantes.
+
+Realmente solo faltan esas pequeñas cosas para ser compatibles con syslog-ng
+
+mari :-) m

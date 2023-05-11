@@ -1,0 +1,30 @@
+grant codebase "file:build/scoja/-" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-cc.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-beep.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-compression.jar" {
+  permission java.security.AllPermission "*";
+};
+grant codebase "file:${scoja.home}/scoja-rpc.jar" {
+  permission java.security.AllPermission "*";
+};
+
+grant codebase "file:lib/jython.jar" {
+  //File.getAbsolutePath accesses user.dir property.
+  permission java.util.PropertyPermission "user.dir", "read";
+  //The package cache is stored at
+  permission java.io.FilePermission "lib/cachedir/-", "read,write";
+  //To build the package cache, the folling directories must be read
+  permission java.io.FilePermission "build/scoja", "read";
+  permission java.io.FilePermission "build/scoja/-", "read";
+  permission java.io.FilePermission "lib/-", "read";
+  permission java.lang.RuntimePermission "createClassLoader";
+  permission java.lang.RuntimePermission "getProtectionDomain";
+  //Resolution must be enabled, usually to resolve remote locations to send to.
+  permission java.net.SocketPermission "*", "resolve";
+};

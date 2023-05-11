@@ -1,0 +1,15 @@
+ RELEASE 0.9.0
+---------------
+
+- A new transport layer to manage communication.
+  It is stackable.
+  Allows tcp, non-blocking tcp, ssl, and an http proxy.
+  The http proxy can be authenticated with "basic" or "ntlm".
+  The ssl layer can request client authentication;
+  the client certificate properties are available to the event processing net
+  as functions (peer(), peer("CN"), ...)
+  or as template holes ($PEER, $PEERCN, ...).
+  
+- A filter to limit events by acumulated size or number of events.
+  The class is FilterLimit.
+  The scoja operation is limit(...)
